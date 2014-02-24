@@ -8,13 +8,14 @@ def main():
     import ifdb_sna as isna
     import process_ifdb_data as pifdata
     import soundcloud 
+    import clientSettings as client
 
-    client = soundcloud.Client(client_id='3d158f3620682a747df5e90bb3309b2e')
+    client = soundcloud.Client(client_id=client.get_client_id())
 
     print 'Demonstrating process_ifdb_data'
     pifdata.demonstrate()
-    print 'Demonstrating ifdb_sna'
-    demo = isna.demonstrate()
+    #print 'Demonstrating ifdb_sna'
+    #demo = isna.demonstrate()
 
     tracks = client.get('/tracks', limit=10)
     print 'Ten tracks'
