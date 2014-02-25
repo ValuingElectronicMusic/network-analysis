@@ -92,7 +92,7 @@ def main():
     print '** get 10 comments on an electronic track'
     getAllTrackComments(client, track)
     
-    print 'get 10 comments made by a given user'
+    print '** get 10 comments made by a given user'
     getAllUserComments(client, user)
        
     
