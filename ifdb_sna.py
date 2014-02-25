@@ -7,8 +7,8 @@
 # 'demonstrate' that shows what some of these things are supposed to
 # do.
 
-import networkx as nx
-import pygraphviz as pgv
+import networkx as nx  # @UnresolvedImport
+import pygraphviz as pgv   # @UnresolvedImport
 import process_ifdb_data as pid
 
 sys_list=['adrift','hugo','inform','tads','zil']
@@ -160,11 +160,22 @@ def in_degree_ranking(g,data):
 def demonstrate():
     'This is just there to show how things work. It may take some time.'
 
+    print 'Creating data holder'
     data = pid.data_holder()
+
+    print 'getting entities from data'
     entities = pid.entity_holder(data)
+    
+    print'building network of entities from the data'
     g1 = build_network(entities,data)
+
+    print 'reducing the network'
     g2 = reduce_network(g1)
+    
+    print 'filtering network to include recognisers only'
     g3 = recognisers_only(g2)
+    
+    print 'drawing the networks, see test1.png, test2.png, test3.png'
     d1 = draw_network(g1,'test1.png') # Extension determines file type.
     d2 = draw_network(g2,'test2.png') # SVG, JPEG, EPS, etc are also
     d3 = draw_network(g3,'test3.png') # possible.
@@ -173,3 +184,13 @@ def demonstrate():
     print 'Pos\tName\tIndegree'
     for i in range(10):
         print '{}\t{}\t{}'.format(i+1,i_r[i][1],i_r[i][0])
+        
+    e_r = eigenvector_ranking(g1,data)
+    print 'Pos\tName\tEigenvector'
+    for i in range(10):
+        print '{}\t{}\t{}'.format(i+1,e_r[i][1],e_r[i][0])
+        
+    p_r = pagerank_ranking(g1,data)
+    print 'Pos\tName\tPageRank'
+    for i in range(10):
+        print '{}\t{}\t{}'.format(i+1,p_r[i][1],p_r[i][0])

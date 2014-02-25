@@ -126,12 +126,12 @@ def attribute_entity_dict(attribute,entity_set,attr_index):
 def work_number_and_mean_ratings(work,data):
     'Returns the number of ratings and the mean rating that a work received.'
 
-    ratings = [r for r in work_ratings(work,data)]
+    ratings = [r for r in work_ratings(work,data)] # @UndefinedVariable
     num_ratings = len(ratings)
     if num_ratings == 0: return 0,0
     else:
         num_ratings = sum([r[2] for r in ratings])/float(num_ratings)
-        return num_ratings,mean_ratings
+        return num_ratings,mean_ratings  # @UndefinedVariable
 
 def most_rated(data):
     'Returns list of tuples in order of ranking of works by number of ratings.'
