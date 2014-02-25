@@ -24,7 +24,7 @@ class data_holder():
 
     def __init__(self):
         self.receptions = set(get_table('Receptions'))
-        self.authorings = set(get_table('Authorings'))
+        self.producings = set(get_table('Authorings'))
         self.works = set(get_table('Works'))
         self.agents = set(get_table('Agents'))
 
@@ -35,24 +35,24 @@ class entity_holder():
         self.agents = {x[0] for x in data.agents}
         self.users = {x[0] for x in data.agents if len(x[0]) != 10}
         self.nonusers = {x[0] for x in data.agents if len(x[0]) == 10}
-        self.authors = {x[0] for x in data.authorings}
+        self.users = {x[0] for x in data.producings}
         self.works = {x[0] for x in data.works}
         self.receivers = {x[0] for x in data.receptions}
         self.received = {x[1] for x in data.receptions}
         self.rated = {x[1] for x in data.receptions if x[2] >= 1}
         self.raters = {x[0] for x in data.receptions if x[2] >= 1}
-        self.recognitions = {x[:2] for x in data.receptions 
+        self.follow_recognitions = {x[:2] for x in data.receptions 
                              if x[2] >= rating_threshold}
-        self.highrated = {x[1] for x in self.recognitions}
-        self.recognised = {x[0] for x in data.authorings 
+        self.highrated = {x[1] for x in self.follow_recognitions}
+        self.recognised = {x[0] for x in data.producings 
                            if x[1] in self.highrated}
-        self.recognisers = {x[0] for x in self.recognitions}
-        self.author_users = self.authors & self.users
-        self.author_receivers = self.authors & self.receivers
-        self.author_raters = self.authors & self.raters
-        self.author_recognisers = self.authors & self.recognisers
-        self.recognised_recognisers = self.recognised & self.recognisers
-        self.active_users = self.author_users | self.receivers
+        self.followers = {x[0] for x in self.follow_recognitions}
+        self.user_users = self.users & self.users
+        self.user_receivers = self.users & self.receivers
+        self.user_raters = self.users & self.raters
+        self.user_followers = self.users & self.followers
+        self.recognised_followers = self.recognised & self.followers
+        self.active_users = self.user_users | self.receivers
 
 class attribute_holder():
     'An object to hold ranges of categorical values for some variables.'
@@ -142,35 +142,37 @@ def most_rated(data):
 def authors_of(work,data):
     'Returns set of agents credited with authorship of a single work.'
 
-    return {authoring[0] for authoring in data.authorings 
-            if authoring[1] == work}
+    return {producing[0] for producing in data.producings 
+            if producing[1] == work}
 
-def works_by(author,data):
-    'Returns set of works for which an author is credited.'
+def works_by(user,data):
+    'Returns set of works for which a user is credited.'
 
-    return {authoring[1] for authoring in data.authorings
-            if authoring[0] == author}
+    return {producing[1] for producing in data.producings
+            if producing[0] == user}
 
-def recognisers_of(work,entities,data):
+def followers_of(work,entities,data):
     '''Returns set of agents who rated a given work highly.
 
-    Note that ratings of works for which the rater is credited as an
-    author are excluded.'''
+    Note that ratings of works for which the rater is credited as a
+    user are excluded.
+    NB this method will need to be rewritten for SoundCloud data'''
 
-    return {rec[0] for rec in entities.recognitions
+    return {rec[0] for rec in entities.follow_recognitions
             if rec[1] == work
             and rec[1] not in works_by(rec[0],data)}
 
-def recognisers_of_author(author,entities,data):
-    '''Returns set of agents who rated a given author's works highly.
+def followers_of_user(user,entities,data):
+    '''Returns set of agents who rated a given user's works highly.
 
     Note that an agent's ratings of works that he or she co-authored
-    with the author in question are excluded.'''
+    with the user in question are excluded.
+    NB this method will need to be rewritten for SoundCloud data'''
 
-    recognisers = set([])
-    for work in works_by(author,data):
-        recognisers = recognisers | recognisers_of(work,entities,data)
-    return recognisers
+    followers = set([])
+    for work in works_by(user,data):
+        followers = followers | followers_of(work,entities,data)
+    return followers
 
 def total_receptions_attribute(attribute,attr_entity_dict,data):
     'Returns all receptions of works with the given value for one variable.'
@@ -184,7 +186,8 @@ def dict_total_receptions_attribute_type(att_type,att_entity_dict,data):
     Key is every value which that variable has in the data. I used
     this for comparing the number of ratings and reviews received by
     works in different languages, released in different years, or
-    developed with different authoring systems.'''
+    developed with different authoring systems.
+    NB authoring systems - out of date comment - different genres?'''
 
     return {att:total_receptions_attribute(att,att_entity_dict,data)
             for att in att_type}
@@ -201,10 +204,10 @@ def demonstrate():
     print 'Receptions of Inform 6 works: {}\n'.format(len(inf6_receps))
 
     lang_works = attribute_entity_dict(attributes.languages,data.works,3)
-    print 'Works in Russian: {}'.format(len(lang_works['Russian (ru)']))
+    print 'Works in Dutch: {}'.format(len(lang_works['Dutch (nl)']))
 
     lang_receptions = dict_total_receptions_attribute_type(attributes.languages,lang_works,data)
-    print 'Receptions of works in Russian: {}\n'.format(len(lang_receptions['Russian (ru)']))
+    print 'Receptions of works in Dutch: {}\n'.format(len(lang_receptions['Dutch (nl)']))
     # Note that most languages were entered with multiple variants of the same
     # string. Russian happened not to be, probably because there were just two
     # works.

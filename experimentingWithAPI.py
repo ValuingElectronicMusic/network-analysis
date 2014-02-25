@@ -5,8 +5,8 @@ Created on 21 Feb 2014
 '''
 import random
 import soundcloud   # @UnresolvedImport
-import ifdb_sna as isna
-import process_ifdb_data as pifdata
+import scdb_sna as scna
+import process_scdb_data as pscdata
 
 
 def get6emtracks(client):
@@ -76,11 +76,11 @@ def main():
     
     client = soundcloud.Client(client_id=client.get_client_id())
 
-    #print 'Demonstrating process_ifdb_data'
-    #pifdata.demonstrate()
+    #print 'Demonstrating process_scdb_data'
+    #pscdata.demonstrate()
     
-    #print 'Demonstrating ifdb_sna'
-    #demo = isna.demonstrate()
+    #print 'Demonstrating scdb_sna'
+    #demo = scna.demonstrate()
 
     experimentWithTracks(client)
     

@@ -1,73 +1,74 @@
 #!/usr/bin/env python
 
 # This is a bunch of functions used for creating a graph representing
-# recognitions in the IFDB data, manipulating that graph by removing
+# followings in the SoundCloud data, manipulating that graph by removing
 # less well-connected nodes, calculating the centrality of nodes to
 # the graph, and visualising it. At the end, there's a function called
 # 'demonstrate' that shows what some of these things are supposed to
 # do.
 
-import networkx as nx  # @UnresolvedImport
-import pygraphviz as pgv   # @UnresolvedImport
-import process_ifdb_data as pid
+import networkx as nx  
+import pygraphviz as pgv   
+import process_scdb_data as pscd
 
 sys_list=['adrift','hugo','inform','tads','zil']
 
-def author_system_dict(authors,sys_dict,data):
-    '''Returns a dictionary of dictionaries representing authoring system use.
+def user_system_dict(users,sys_dict,data):
+    '''Returns a dictionary of dictionaries representing users' SoundCloud use.
 
-    Keys are authors. Values are dictionaries where keys are authoring
-    systems and values are integers indicating how many works an
-    author has released with each authoring system.'''
+    To be updated. Keys are users. Values are dictionaries where keys are authoring
+    systems and values are integers indicating how many works a
+    user has released with each authoring system. 
+    NB This is to be converted to keys as genres'''
 
     sys_used = {}
-    for author in authors:
-        sys_used[author]={}
+    for user in users:
+        sys_used[user]={}
         for system in sys_list:
-            sys_used[author][system] = len(pid.works_by(author,data)
+            sys_used[user][system] = len(pscd.works_by(user,data)
                                            & sys_dict[system])
     return sys_used
 
-def recognition_dict(entities,data):
-    '''Returns a dictionary of recognitions.
+def followings_dict(entities,data):
+    '''Returns a dictionary of followings.
 
-    Keys are authors, values are agents who recognised those authors.'''
+    Keys are users, values are agents who followed those users.'''
 
-    return {author:pid.recognisers_of_author(author,entities,data) 
-            for author in entities.authors}
+    return {user:pscd.followers_of_user(user,entities,data) 
+            for user in entities.users}
 
-def recognition_tuples(recognisers,authors,rec_dict):
-    '''Returns a list of tuples representing recognitions.
+def followings_tuples(followers,users,rec_dict):
+    '''Returns a list of tuples representing followings.
 
     This can be passed directly into a NetworkX digraph object as a
     representation of the graph's arcs.'''
 
-    return [(recogniser,author) 
-            for recogniser in recognisers 
-            for author in authors
-            if recogniser in rec_dict[author]]
+    return [(follower,user) 
+            for follower in followers 
+            for user in users
+            if follower in rec_dict[user]]
 
 def build_network(entities,data,subset=None):
-    '''Creates a NetworkX DiGraph object based on recognitions between
-    creators.'''
+    '''Creates a NetworkX DiGraph object based on followings between
+    users.'''
 
-    recognisers = (entities.recognisers & subset if subset 
-                   else entities.recognisers)
-    authors = (entities.authors & subset if subset 
-               else entities.authors)
+    followers = (entities.followers & subset if subset 
+                   else entities.followers)
+    users = (entities.users & subset if subset 
+               else entities.users)
 
     g = nx.DiGraph()
-    g.add_edges_from(recognition_tuples(recognisers,
-                                        authors,
-                                        recognition_dict(entities,data)))
+    g.add_edges_from(followings_tuples(followers,
+                                        users,
+                                        followings_dict(entities,data)))
 
     return g
 
 def reduce_network(g, minimum_incoming=1):
     '''Recursively removes nodes without incoming arcs.
 
-    Useful in that it leaves a graph of creators recognised by other
-    recognised creators. Note that it doesn't literally do this
+    Useful in that it leaves a graph of users followed by other
+    followed users. Note that it doesn't literally do this
     recursively, due to Python's lack of tail call optimisation.'''
 
     g = g.copy()
@@ -78,12 +79,12 @@ def reduce_network(g, minimum_incoming=1):
         g.remove_nodes_from(to_drop)
     return g
 
-def recognisers_only(g):
+def followers_only(g):
     '''Removes nodes without outgoing arcs.
 
     Useful because it leaves only those nodes that are really
     participating in the network. In the case of my interactive
-    fiction data, it gets rid of "historic" authors who never used the
+    fiction data, it gets rid of "historic" users who never used the
     network but are admired by network members.'''
 
     g = g.copy()
@@ -144,7 +145,7 @@ def draw_network(g,filename,point=True,fac=10,siz=0.2,larger=False):
     return ag
 
 def centrality_dict_to_list(cd,data):
-    return sorted([(y,pid.name_entity(x,data.agents)) 
+    return sorted([(y,pscd.name_entity(x,data.agents)) 
                    for x,y in cd.iteritems()])[::-1]
 
 def eigenvector_ranking(g,data):
@@ -161,10 +162,10 @@ def demonstrate():
     'This is just there to show how things work. It may take some time.'
 
     print 'Creating data holder'
-    data = pid.data_holder()
+    data = pscd.data_holder()
 
     print 'getting entities from data'
-    entities = pid.entity_holder(data)
+    entities = pscd.entity_holder(data)
     
     print'building network of entities from the data'
     g1 = build_network(entities,data)
@@ -172,8 +173,8 @@ def demonstrate():
     print 'reducing the network'
     g2 = reduce_network(g1)
     
-    print 'filtering network to include recognisers only'
-    g3 = recognisers_only(g2)
+    print 'filtering network to include followers only'
+    g3 = followers_only(g2)
     
     print 'drawing the networks, see test1.png, test2.png, test3.png'
     d1 = draw_network(g1,'test1.png') # Extension determines file type.
