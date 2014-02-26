@@ -9,25 +9,25 @@
 
 import networkx as nx
 import pygraphviz as pgv
-import process_ifdb_data as pid
+import process_scdb_data as pid
 
-sys_list=['adrift','hugo','inform','tads','zil']
-
-def author_system_dict(authors,sys_dict,data):
-    '''Returns a dictionary of dictionaries representing authoring system use.
-
-    Keys are authors. Values are dictionaries where keys are authoring
-    systems and values are integers indicating how many works an
-    author has released with each authoring system.'''
-
-    sys_used = {}
-    for author in authors:
-        sys_used[author]={}
-        for system in sys_list:
-            sys_used[author][system] = len(pid.works_by(author,data)
-                                           & sys_dict[system])
-    return sys_used
-
+#sys_list=['adrift','hugo','inform','tads','zil']
+#
+#def author_system_dict(authors,sys_dict,data):
+#    '''Returns a dictionary of dictionaries representing authoring system use.
+#
+#    Keys are authors. Values are dictionaries where keys are authoring
+#    systems and values are integers indicating how many works an
+#    author has released with each authoring system.'''
+#
+#    sys_used = {}
+#    for author in authors:
+#        sys_used[author]={}
+#        for system in sys_list:
+#            sys_used[author][system] = len(pid.works_by(author,data)
+#                                           & sys_dict[system])
+#    return sys_used
+#
 def recognition_dict(entities,data):
     '''Returns a dictionary of recognitions.
 
@@ -173,3 +173,11 @@ def demonstrate():
     print 'Pos\tName\tIndegree'
     for i in range(10):
         print '{}\t{}\t{}'.format(i+1,i_r[i][1],i_r[i][0])
+    e_r = eigenvector_ranking(g1,data)
+    print 'Pos\tName\tEigenvector'
+    for i in range(10):
+        print '{}\t{}\t{}'.format(i+1,e_r[i][1],e_r[i][0])
+    p_r = pagerank_ranking(g1,data)
+    print 'Pos\tName\tPageRank'
+    for i in range(10):
+        print '{}\t{}\t{}'.format(i+1,p_r[i][1],p_r[i][0])
