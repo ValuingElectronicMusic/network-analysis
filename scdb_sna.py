@@ -162,6 +162,7 @@ def demonstrate():
 
     data = pid.data_holder()
     entities = pid.entity_holder(data)
+    pid.printData(entities)
     g1 = build_network(entities,data)
     g2 = reduce_network(g1)
     g3 = recognisers_only(g2)
@@ -171,13 +172,13 @@ def demonstrate():
 
     i_r = in_degree_ranking(g1,data)
     print 'Pos\tName\tIndegree'
-    for i in range(10):
+    for i in range(len(i_r)-1):
         print '{}\t{}\t{}'.format(i+1,i_r[i][1],i_r[i][0])
     e_r = eigenvector_ranking(g1,data)
     print 'Pos\tName\tEigenvector'
-    for i in range(10):
+    for i in range(len(e_r)-1):
         print '{}\t{}\t{}'.format(i+1,e_r[i][1],e_r[i][0])
     p_r = pagerank_ranking(g1,data)
     print 'Pos\tName\tPageRank'
-    for i in range(10):
+    for i in range(len(p_r)-1):
         print '{}\t{}\t{}'.format(i+1,p_r[i][1],p_r[i][0])

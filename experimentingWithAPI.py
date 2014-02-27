@@ -75,25 +75,25 @@ def main():
     import clientSettings as client
     
     client = soundcloud.Client(client_id=client.get_client_id())
-#
-#    print 'Demonstrating process_scdb_data'
-#    pscdata.demonstrate()
+
+    print 'Demonstrating process_scdb_data'
+    pscdata.demonstrate()
     
     print 'Demonstrating scdb_sna'
     demo = scna.demonstrate()
-#
-#    experimentWithTracks(client)
-#    
-#    track = get6emtracks(client)
-#    
-#    print '** get 10 followers/10 followings of a user'
-#    user = getAllFollowers(client)
-#    
-#    print '** get 10 comments on an electronic track'
-#    getAllTrackComments(client, track)
-#    
-#    print '** get 10 comments made by a given user'
-#    getAllUserComments(client, user)
+
+    experimentWithTracks(client)
+    
+    track = get6emtracks(client)
+    
+    print '** get 10 followers/10 followings of a user'
+    user = getAllFollowers(client)
+    
+    print '** get 10 comments on an electronic track'
+    getAllTrackComments(client, track)
+    
+    print '** get 10 comments made by a given user'
+    getAllUserComments(client, user)
        
     
     

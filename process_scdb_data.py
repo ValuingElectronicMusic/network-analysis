@@ -8,6 +8,7 @@
 # of these do.
 
 from sqlite3 import connect
+import getSoundCloudData as scd
 
 db_path = 'ifdb_data.sqlite'
 
@@ -19,34 +20,66 @@ def get_table(tableName):
         curs.execute("SELECT * FROM {!s}".format(tableName))
         return curs.fetchall()
 
+def printData(entities):
+    print 'Agents (5 selected at random)'
+    count=0;
+    while count<5:
+        print(str(count)+': '+str(entities.agents.pop()))
+        count = count+1
+    
+    print ''
+    print 'Authors (5 selected at random)'
+    count=0;
+    while count<5:
+        print(str(count)+': '+str(entities.authors.pop()))
+        count = count+1
+
+    print ''
+    print 'Recognisers (5 selected at random)'
+    count=0;
+    while count<5:
+        print(str(count)+': '+str(entities.recognisers.pop()))
+        count = count+1
+
+#class data_holder():
+#    'An object to hold data from each of the four tables in the database.'
+#
+#    def __init__(self):
+#        self.receptions = scd.getXUserIDs(10); 
+#        self.authorings = scd.getXUserIDs(10);
+#        self.agents = scd.getXUserIDs(10);
+#        
 class data_holder():
     'An object to hold data from each of the four tables in the database.'
 
     def __init__(self):
-        self.receptions = set(get_table('Receptions'))
+#        self.receptions = set(get_table('Receptions'))
         self.authorings = set(get_table('Authorings'))
 #        self.works = set(get_table('Works'))
-        self.agents = set(get_table('Agents'))
+#        self.agents = set(get_table('Agents'))
 
 class entity_holder():
     'An object to hold data cheaply processed from those held in the above.'
 
-    def __init__(self,data,rating_threshold=4):
-        self.agents = {x[0] for x in data.agents}
+    def __init__(self):
+#        self.agents = {x[0] for x in data.agents}
+        self.agents = scd.getSnowballSample(10)
 #        self.users = {x[0] for x in data.agents if len(x[0]) != 10}
 #        self.nonusers = {x[0] for x in data.agents if len(x[0]) == 10}
-        self.authors = {x[0] for x in data.authorings}
+#        self.authors = {x[0] for x in data.authorings}
+        self.authors = scd.getSnowballSample(10)
 #        self.works = {x[0] for x in data.works}
 #        self.receivers = {x[0] for x in data.receptions}
 #        self.received = {x[1] for x in data.receptions}
 #        self.rated = {x[1] for x in data.receptions if x[2] >= 1}
 #        self.raters = {x[0] for x in data.receptions if x[2] >= 1}
-        self.recognitions = {x[:2] for x in data.receptions # for self.recognisers 
-                             if x[2] >= rating_threshold}
+#        self.recognitions = {x[:2] for x in data.receptions # for self.recognisers 
+#                             if x[2] >= rating_threshold}
 #        self.highrated = {x[1] for x in self.recognitions}
 #        self.recognised = {x[0] for x in data.authorings 
 #                           if x[1] in self.highrated}
-        self.recognisers = {x[0] for x in self.recognitions}
+#        self.recognisers = {x[0] for x in self.recognitions}
+        self.recognisers = scd.getSnowballSample(10)
 #        self.author_users = self.authors & self.users
 #        self.author_receivers = self.authors & self.receivers
 #        self.author_raters = self.authors & self.raters
