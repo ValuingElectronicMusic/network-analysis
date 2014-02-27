@@ -41,7 +41,7 @@ class data_holder():
 class entity_holder():
     'An object to hold data cheaply processed from those held in the above.'
 
-    def __init__(self):
+    def __init__(self, data):
         self.agents = {x.id for x in data.agents}
 #        self.users = {x[0] for x in data.agents if len(x[0]) != 10}
 #        self.nonusers = {x[0] for x in data.agents if len(x[0]) == 10}
@@ -94,24 +94,31 @@ def printData(data):
 
 
 def printEntities(entities):
+    print ''
     print 'entities.agents (max 10 selected at random)'
+    temp_copy = entities.agents.copy()
     count=0;
-    while (count<10 and len(entities)>0):
-        print(str(count)+': '+str(entities.agents.pop()))
+    while (count<10 and len(temp_copy)>0):
+        popped = temp_copy.pop()
+        print(str(count)+'. agent id: '+str(popped))
         count = count+1
     
     print ''
     print 'entities.authors (max 10 selected at random)'
+    temp_copy = entities.authors.copy()
     count=0;
-    while (count<10 and len(entities)>0):
-        print(str(count)+': '+str(entities.authors.pop()))
+    while (count<10 and len(temp_copy)>0):
+        popped = temp_copy.pop()
+        print(str(count)+'. agent id: '+str(popped))
         count = count+1
 
     print ''
     print 'entities.recognisers (max 10 selected at random)'
+    temp_copy = entities.recognisers.copy()
     count=0;
-    while (count<10 and len(entities)>0):
-        print(str(count)+': '+str(entities.recognisers.pop()))
+    while (count<10 and len(temp_copy)>0):
+        popped = temp_copy.pop()
+        print(str(count)+'. agent id: '+str(popped))
         count = count+1
 
 

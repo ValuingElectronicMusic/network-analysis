@@ -27,7 +27,7 @@ def getRandomUser():
 def getXUserIDs(limit=10):
     users = set()
     for i in range(0,limit):
-        print i
+        #print i
         users.add(getRandomUser().id)
     return users
 
@@ -86,3 +86,5 @@ def main():
     import process_scdb_data as pscd
     data = pscd.data_holder()
     pscd.printData(data) 
+    entities = pscd.entity_holder(data)
+    pscd.printEntities(entities)
