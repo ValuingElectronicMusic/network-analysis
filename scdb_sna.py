@@ -161,8 +161,9 @@ def demonstrate():
     'This is just there to show how things work. It may take some time.'
 
     data = pid.data_holder()
+    pid.printData(data)
     entities = pid.entity_holder(data)
-    pid.printData(entities)
+    pid.printEntities(entities)
     g1 = build_network(entities,data)
     g2 = reduce_network(g1)
     g3 = recognisers_only(g2)
