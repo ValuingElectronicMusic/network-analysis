@@ -6,7 +6,7 @@ Created on 21 Feb 2014
 import random
 import soundcloud   # @UnresolvedImport
 import scdb_sna as scna
-import process_scdb_data as pscdata
+import process_scdb_data as pscd
 
 
 def get6emtracks(client):
@@ -72,12 +72,12 @@ def getAllUserComments(client, user):
     
 def main(): 
 
-    import clientSettings as client
+    import clientSettings as clientS
     
-    client = soundcloud.Client(client_id=client.get_client_id())
+    client = soundcloud.Client(client_id=clientS.get_client_id())
 
     print 'Demonstrating process_scdb_data'
-    pscdata.demonstrate()
+    pscd.demonstrate()
     
     print 'Demonstrating scdb_sna'
     demo = scna.demonstrate()

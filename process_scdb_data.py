@@ -23,13 +23,15 @@ import getSoundCloudData as scd
 class data_holder():
     'Temp use of the data_holder class to populate the data using methods from getSoundCloud Data rather than from external db.'
 
-    def __init__(self,agents,x_follows_y,tracks):
+    def __init__(self):
+        scd.getNewSnowballSample(15)
+
         # self.agents = set of SoundCloud user objects
-        self.agents = agents
+        self.agents = scd.agents
         # self.x_follows_y = set of SoundCloud follow relationship tuples (x, y) where SC agent x follows SC agent y
-        self.x_follows_y = x_follows_y
+        self.x_follows_y = scd.x_follows_y
         # self.tracks = set of SoundCloud track objects where tracks belong to users in self.agents
-        self.tracks = tracks
+        self.tracks = scd.tracks
         
 #class data_holder():
 #    'An object to hold data from each of the four tables in the database.'
@@ -58,7 +60,7 @@ class entity_holder():
 #        self.highrated = {x[1] for x in self.recognitions}
 #        self.recognised = {x[0] for x in data.authorings 
 #                           if x[1] in self.highrated}
-        self.recognisers = {x[0] for x in self.x_follows_y}
+        self.recognisers = {x[0] for x in data.x_follows_y}
 #        self.author_users = self.authors & self.users
 #        self.author_receivers = self.authors & self.receivers
 #        self.author_raters = self.authors & self.raters
@@ -75,7 +77,35 @@ class entity_holder():
 #        self.dev_systems = {x[4] for x in data.tracks}
 #
 
-
+def printData(data):
+    print('data.agents (max 10, selected at random from '+str(len(data.agents))+' data.agents)')
+    temp_copy = data.agents.copy()
+    count=0;
+    while (count<10 and len(temp_copy)>0):
+        popped = temp_copy.pop()
+        print(str(count)+'. agent '+str(popped.id)+' '+popped.username)
+        count = count+1
+    
+    print ''
+    print('x_follows_y relationships (max 10 selected at random from '+str(len(data.x_follows_y))+' follow relationships data.x_follows_y)')
+    temp_copy = data.x_follows_y.copy()
+    count=0;
+    while (count<10 and len(temp_copy)>0):
+        popped = temp_copy.pop()
+        print(str(count)+'. agent id: '+str(popped[0])+' follows '+str(popped[1]))
+        count = count+1
+        
+    print ''
+    print('data.tracks (max 10 selected at random from '+str(len(data.tracks))+' data.tracks)')
+    temp_copy = data.tracks.copy()
+    count=0;
+    while (count<10 and len(temp_copy)>0):
+        popped = temp_copy.pop()
+        try:  # might throw a type error if there are strange characters in the title or genre for a track
+            print(str(count)+'. agent id: '+str(popped.user_id)+', track id: '+str(popped.id)+', title: '+popped.title+', genre: '+popped.genre)
+        except Exception as e:
+            print(str(count)+'. agent id: '+str(popped.user_id)+', track id: '+str(popped.id)+', title and genre - error in displaying, '+ e.message)
+        count = count+1
 
 def printEntities(entities):
     print ''

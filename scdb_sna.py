@@ -9,7 +9,7 @@
 
 import networkx as nx
 import pygraphviz as pgv
-import process_scdb_data as pid
+import process_scdb_data as pscd
 
 #sys_list=['adrift','hugo','inform','tads','zil']
 #
@@ -24,7 +24,7 @@ import process_scdb_data as pid
 #    for author in authors:
 #        sys_used[author]={}
 #        for system in sys_list:
-#            sys_used[author][system] = len(pid.works_by(author,data)
+#            sys_used[author][system] = len(pscd.works_by(author,data)
 #                                           & sys_dict[system])
 #    return sys_used
 #
@@ -33,7 +33,7 @@ def recognition_dict(entities,data):
 
     Keys are authors, values are agents who recognised those authors.'''
 
-    return {author:pid.recognisers_of_author(author,entities,data) 
+    return {author:pscd.recognisers_of_author(author,entities,data) 
             for author in entities.authors}
 
 def recognition_tuples(recognisers,authors,rec_dict):
@@ -144,7 +144,7 @@ def draw_network(g,filename,point=True,fac=10,siz=0.2,larger=False):
     return ag
 
 def centrality_dict_to_list(cd,data):
-    return sorted([(y,pid.name_entity(x,data.agents)) 
+    return sorted([(y,pscd.name_entity(x,data.agents)) 
                    for x,y in cd.iteritems()])[::-1]
 
 def eigenvector_ranking(g,data):
@@ -160,10 +160,10 @@ def in_degree_ranking(g,data):
 def demonstrate():
     'This is just there to show how things work. It may take some time.'
 
-    data = pid.data_holder()
-    pid.printData(data)
-    entities = pid.entity_holder(data)
-    pid.printEntities(entities)
+    data = pscd.data_holder()
+    pscd.printData(data)
+    entities = pscd.entity_holder(data)
+    pscd.printEntities(entities)
     g1 = build_network(entities,data)
     g2 = reduce_network(g1)
     g3 = recognisers_only(g2)
