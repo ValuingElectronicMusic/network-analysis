@@ -11,50 +11,11 @@ import networkx as nx
 import pygraphviz as pgv
 import process_scdb_data as pscd
 
-#sys_list=['adrift','hugo','inform','tads','zil']
-#
-#def author_system_dict(authors,sys_dict,data):
-#    '''Returns a dictionary of dictionaries representing authoring system use.
-#
-#    Keys are authors. Values are dictionaries where keys are authoring
-#    systems and values are integers indicating how many works an
-#    author has released with each authoring system.'''
-#
-#    sys_used = {}
-#    for author in authors:
-#        sys_used[author]={}
-#        for system in sys_list:
-#            sys_used[author][system] = len(pscd.works_by(author,data)
-#                                           & sys_dict[system])
-#    return sys_used
-#
-#def recognition_dict(entities,data):
-#    '''Returns a dictionary of recognitions.
-#
-#    Keys are authors, values are agents who recognised those authors.'''
-#
-#    return {author:pscd.recognisers_of_author(author,data) 
-#            for author in entities.authors}
-#
-#def recognition_tuples(recognisers,authors,rec_dict):
-#    '''Returns a list of tuples representing recognitions.
-#
-#    This can be passed directly into a NetworkX digraph object as a
-#    representation of the graph's arcs.'''
-#
-#    return [(recogniser,author) 
-#            for recogniser in recognisers 
-#            for author in authors
-#            if recogniser in rec_dict[author]]
 
 def build_network(entities,data,subset=None):
     '''Creates a NetworkX DiGraph object based on recognitions between
     creators.'''
 
-#    followers = (entities.x_follows_y & subset if subset 
-#                   else entities.x_follows_y)
-#    authors = (entities.authors & subset if subset 
-#               else entities.authors)
     g = nx.DiGraph()
     g.add_edges_from(data.x_follows_y)
     return g
@@ -78,8 +39,8 @@ def followers_only(g):
     '''Removes nodes without outgoing arcs.
 
     Useful because it leaves only those nodes that are really
-    participating in the network. In the case of my interactive
-    fiction data, it gets rid of "historic" authors who never used the
+    participating in the network. In the case of the SoundCloud
+    data, it gets rid of "historic" users who never used the
     network but are admired by network members.'''
 
     g = g.copy()
@@ -140,7 +101,7 @@ def draw_network(g,filename,point=True,fac=10,siz=0.2,larger=False):
     return ag
 
 def centrality_dict_to_list(cd,data):
-    return sorted([(y,pscd.name_agent(x,data.agents)) 
+    return sorted([(y,pscd.getUserName(x,data.users)) 
                    for x,y in cd.iteritems()])[::-1]
 
 def eigenvector_ranking(g,data):

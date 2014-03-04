@@ -10,25 +10,37 @@ import soundcloud
 import clientSettings as client
 client = soundcloud.Client(client_id=client.get_client_id())
 import sqlite3
+import time
+timeDelay = 0.5
 
-
-# agents = set of SoundCloud user objects
-agents = set()
-# x_follows_y = set of tuples (x, y) representing follow relationships in SoundCloud where x follows y (and x and y are both in "agents")
+# The following global variables represent information about the SoundCloud users in our
+# sample set. We only collect data on users in our sample set, discarding other data  
+# users = set of SoundCloud user objects
+users = set()
+# x_follows_y = set of tuples (x, y) representing follow relationships in SoundCloud where x follows y (and x and y are both in "users")
 x_follows_y = set()
-# tracks = set of SoundCloud track objects where tracks belong to users in "agents"
+# tracks = set of SoundCloud track objects where tracks belong to users in "users"
 tracks = set()
-
+# TODO add the four items below as DB tables
+# groups - set of SoundCloud groups that a user has joined
+groups = set()
+# playlists - set of [groups of tracks] that a user has added to a playlist
+playlists = set()
+# favourites (NB English spelling here, US spelling on SoundCloud) 
+#    - tracks that a user has 'liked'
+favourites = set()
+# comments - set of SoundCloud comments for a particular track
+comments = set()
 
 
 def printData():
-    global agents
-    print('agents (max 10, selected at random from '+str(len(agents))+' agents)')
-    temp_copy = agents.copy()
+    global users
+    print('users (max 10, selected at random from '+str(len(users))+' users)')
+    temp_copy = users.copy()
     count=0;
     while (count<10 and len(temp_copy)>0):
         popped = temp_copy.pop()
-        print(str(count)+'. agent '+str(popped.id)+' '+popped.username)
+        print(str(count)+'. user '+str(popped.id)+' '+popped.username)
         count = count+1
     
     global x_follows_y
@@ -38,7 +50,7 @@ def printData():
     count=0;
     while (count<10 and len(temp_copy)>0):
         popped = temp_copy.pop()
-        print(str(count)+'. agent id: '+str(popped[0])+' follows '+str(popped[1]))
+        print(str(count)+'. user id: '+str(popped[0])+' follows '+str(popped[1]))
         count = count+1
         
     global tracks
@@ -49,9 +61,9 @@ def printData():
     while (count<10 and len(temp_copy)>0):
         popped = temp_copy.pop()
         try:  # might throw a type error if there are strange characters in the title or genre for a track
-            print(str(count)+'. agent id: '+str(popped.user_id)+', track id: '+str(popped.id)+', title: '+popped.title+', genre: '+popped.genre)
+            print(str(count)+'. user id: '+str(popped.user_id)+', track id: '+str(popped.id)+', title: '+popped.title+', genre: '+popped.genre)
         except Exception as e:
-            print(str(count)+'. agent id: '+str(popped.user_id)+', track id: '+str(popped.id)+', title and genre - error in displaying, '+ e.message)
+            print(str(count)+'. user id: '+str(popped.user_id)+', track id: '+str(popped.id)+', title and genre - error in displaying, '+ e.message)
         count = count+1
             
         
@@ -95,101 +107,158 @@ def getNewSnowballSample(sampleSize=10):
     data on those users' tracks and follow relationships between the users in the set 
     N.B. This wipes any previously collected samples that are only stored in local memory '''
     
-    global agents
+    global users
     global tracks
     global x_follows_y
-    agents = set() # initialised to empty
+    global groups
+    global playlists
+    global favourites
+    users = set() # initialised to empty
     x_follows_y = set() # initialised to empty
     tracks = set() # initialised to empty
-    
+    groups = set() # initialised to empty
+    playlists = set() # initialised to empty
+    favourites = set() # initialised to empty
+    comments = set() # initialised to empty
     print('Generating snowball sample with a sample size of '+str(sampleSize))
-    while (len(agents)<sampleSize):
+    while (len(users)<sampleSize):
         user = getRandomUser() # get a new starting point at random        
-        agents.add(user)
+        users.add(user)
         print('Seed user = '+str(user.id))
-        if (len(agents)<sampleSize):  #in case adding the new user to our sample brings us to our desired samplesize
+        if (len(users)<sampleSize):  #in case adding the new user to our sample brings us to our desired samplesize
             collectUsersFromSeedUser(user,sampleSize)
-    
-    tracks = getTracks() # populate the contents of the global "tracks" set  with tracks relating to the new sample of users
-    
+     # populate the contents of the remaining global variables  with data relating to the new sample of users
+    getTracks()
+    getGroups()
+    getPlaylists()
+    getFavourites()
+    getComments()
 
 def collectUsersFromSeedUser(user,sampleSize):
-    ''' Populate the agents and x_follows_y sets with data sampled from SoundCloud '''
-    global agents
+    ''' Populate the users and x_follows_y sets with data sampled from SoundCloud '''
+    global users
     global x_follows_y
     # look for all followers of user    
     followers = getAllFollowers(user)
-    # add each follower to agents set
+    # add each follower to users set
     count=0
-    while (len(agents)<sampleSize and count<len(followers)): # repeat till sample size reached
-        print('length = '+str(len(agents))+', sampleSize = '+str(sampleSize)+', count = '+str(count)+', len followers = '+str(len(followers)))
+    while (len(users)<sampleSize and count<len(followers)): # repeat till sample size reached
+        print('length = '+str(len(users))+', sampleSize = '+str(sampleSize)+', count = '+str(count)+', len followers = '+str(len(followers)))
         print('user '+str(followers[count].id)+' follows '+str(user.id))
-        # Add the follower to the set of SC agents
-        agents.add(followers[count]) # NB add() won't duplicate a member of a set - if they are already in the set, they are not added again
+        # Add the follower to the set of SC users
+        users.add(followers[count]) # NB add() won't duplicate a member of a set - if they are already in the set, they are not added again
         # Add follows relationships between the follower and this seed user
         x_follows_y.add((followers[count].id, user.id))
         count = count+1
       
-    # look for all followings of user    
+    # look for all followings of user (i.e. all users that our seed user follows)    
     followings = getAllFollowings(user)
-    # add each follower to agents set
+    # add each follower to users set
     count=0
-    while (len(agents)<sampleSize and count<len(followings)): # repeat till sample size reached
-        print('length = '+str(len(agents))+', sampleSize = '+str(sampleSize)+', count = '+str(count)+', len followings = '+str(len(followings)))
+    while (len(users)<sampleSize and count<len(followings)): # repeat till sample size reached
+        print('length = '+str(len(users))+', sampleSize = '+str(sampleSize)+', count = '+str(count)+', len followings = '+str(len(followings)))
         print('user '+str(user.id)+' follows '+str(followings[count].id))
-        # Add the follower to the set of SC agents
-        agents.add(followings[count]) # NB add() won't duplicate a member of a set - if they are already in the set, they are not added again
+        # Add the follower to the set of SC users
+        users.add(followings[count]) # NB add() won't duplicate a member of a set - if they are already in the set, they are not added again
         # Add follows relationships between the seed user and the user they follow
         x_follows_y.add((user.id, followings[count].id))
         count = count+1
+        
        
-    # repeat this step with each follower as the seed user, picking up the results in agents
+    # repeat this step with each follower as the seed user, picking up the results in users
+    time.sleep(timeDelay)
     count = 0
-    while (len(agents)<sampleSize and count<len(followers)):
+    while (len(users)<sampleSize and count<len(followers)):
         collectUsersFromSeedUser(followers[count],sampleSize)
+        time.sleep(timeDelay)
         count = count+1
         
-    # repeat this step with each following (user that the seed user follows) as the seed user, picking up the results in agents
+    # repeat this step with each following (user that the seed user follows) as the seed user, picking up the results in users
     count = 0
-    while (len(agents)<sampleSize and count<len(followings)):
+    while (len(users)<sampleSize and count<len(followings)):
         collectUsersFromSeedUser(followings[count],sampleSize)
+        time.sleep(timeDelay)
         count = count+1
 
 
 def getTracks():
-    global agents
-    new_tracks = set()
-    for agent in agents:
-        a_id = agent.id 
-        agent_tracks = client.get('/users/'+str(a_id)+'/tracks')
-        for a_track in agent_tracks:
-            new_tracks.add(a_track)
-    return new_tracks
+    global users
+    global tracks
+    for user in users:
+        u_id = user.id 
+        user_tracks = client.get('/users/'+str(u_id)+'/tracks')
+        for u_track in user_tracks:
+            tracks.add(u_track)
+        time.sleep(timeDelay)
+    
+def getGroups():
+    global users
+    global groups
+    for user in users:
+        u_id = user.id 
+        user_groups = client.get('/users/'+str(u_id)+'/groups')
+        for u_group in user_groups:
+            groups.add(u_group)
+        time.sleep(timeDelay)
+
+def getPlaylists():
+    global users
+    global playlists
+    for user in users:
+        u_id = user.id 
+        user_playlists = client.get('/users/'+str(u_id)+'/playlists')
+        for u_playlist in user_playlists:
+            playlist.add(u_playlist)
+        time.sleep(timeDelay)
+    
+        
+def getFavourites():
+    global users
+    global favourites
+    for user in users:
+        u_id = user.id 
+        user_favourites = client.get('/users/'+str(u_id)+'/favorites') # Note US spelling
+        for u_favourite in user_favourites:
+            favourite.add(u_favourite)
+        time.sleep(timeDelay)
+    
+    
+def getComments():
+    global users
+    global comments
+    for user in users:
+        u_id = user.id 
+        user_comments = client.get('/users/'+str(u_id)+'/comments')
+        for u_comment in user_comments:
+            comment.add(u_comment)
+        time.sleep(timeDelay)
+    
 
 def exportDataToSQLite():
-    global agents
+    global users
     global x_follows_y
     global tracks
     dbFileName='scdb.sqlite'
     try:
         db = sqlite3.connect(dbFileName)
         cursor = db.cursor()
-        cursor.execute('''DROP TABLE agents''')
+        # Start with fresh database
+        cursor.execute('''DROP TABLE users''')
         cursor.execute('''DROP TABLE x_follows_y''')
         cursor.execute('''DROP TABLE tracks''')
         db.commit()
-        print 'Creating agents table in DB....'
+        print 'Creating users table in DB....'
         # Check if table users does not exist and create it
         cursor.execute('''CREATE TABLE IF NOT EXISTS
-                      agents(id INTEGER PRIMARY KEY, permalink TEXT, username TEXT, uri TEXT,
+                      users(id INTEGER PRIMARY KEY, permalink TEXT, username TEXT, uri TEXT,
                              permalink_url TEXT, avatar_url TEXT, country TEXT, full_name TEXT, 
                              city TEXT, description TEXT, discogs_name TEXT, myspace_name TEXT,
                              website TEXT, website_title TEXT, online TEXT, track_count INTEGER,
                              playlist_count INTEGER, followers_count INTEGER, 
                              followings_count INTEGER, public_favorites_count INTEGER)''')
-        print('Adding data to agents table in DB.... Total num of agents: '+str(len(agents)))
-        for agent in agents:
-#            print('Inserting agent '+str(agent.id)+' into the database. Total num of agents: '+str(len(agents)))
+        print('Adding data to users table in DB.... Total num of users: '+str(len(users)))
+        for user in users:
+#            print('Inserting user '+str(user.id)+' into the database. Total num of users: '+str(len(users)))
             # USERS table: fields, description and example value:
             #id     integer ID     123
             #permalink     permalink of the resource     "sbahn-sounds"
@@ -212,18 +281,18 @@ def exportDataToSQLite():
             #followings_count     number of followed users     75
             #public_favorites_count     number of favorited public tracks     7
             #avatar_data     binary data of user avatar     (only for uploading)
-            cursor.execute('''INSERT INTO agents(id, permalink, username, uri,
+            cursor.execute('''INSERT INTO users(id, permalink, username, uri,
                              permalink_url, avatar_url, country, full_name, 
                              city, description, discogs_name, myspace_name,
                              website, website_title, online, track_count,
                              playlist_count, followers_count, 
                              followings_count, public_favorites_count) 
                              VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''', 
-                             (agent.id, agent.permalink, agent.username, agent.uri, agent.permalink_url, 
-                              agent.avatar_url, agent.country, agent.full_name, agent.city, 
-                              agent.description, agent.discogs_name, agent.myspace_name, agent.website, 
-                              agent.website_title, agent.online, agent.track_count, agent.playlist_count, 
-                              agent.followers_count, agent.followings_count, agent.public_favorites_count))
+                             (user.id, user.permalink, user.username, user.uri, user.permalink_url, 
+                              user.avatar_url, user.country, user.full_name, user.city, 
+                              user.description, user.discogs_name, user.myspace_name, user.website, 
+                              user.website_title, user.online, user.track_count, user.playlist_count, 
+                              user.followers_count, user.followings_count, user.public_favorites_count))
 
         # X FOLLOWS Y set of tuples (follower.id, followed.id) 
         print 'Creating x_follows_y table in DB....'
@@ -319,6 +388,40 @@ def exportDataToSQLite():
             VALUES(:id, :video_url, :track_type, :release_month, :original_format, :label_name, :duration, :streamable, :user_id, :title, :favoritings_count, :commentable, :label_id, :state, :downloadable, :waveform_url, :sharing, :description, :release_day, :purchase_url, :permalink, :purchase_title, :stream_url, :key_signature, :user_username, :user_permalink, :user_kind, :user_uri, :user_avatar_url, :user_permalink_url, :user_id_dup, :genre, :isrc, :download_count, :permalink_url, :playback_count, :kind, :release_year, :license, :artwork_url, :created_at, :bpm, :uri, :original_content_size, :comment_count, :release, :tag_list, :embeddable_by)''',
             {'id': track.id, 'video_url': track.video_url, 'track_type': track.track_type, 'release_month': track.release_month, 'original_format': track.original_format, 'label_name': track.label_name, 'duration': track.duration, 'streamable': track.streamable, 'user_id': track.user_id, 'title': track.title, 'favoritings_count': track.favoritings_count, 'commentable': track.commentable, 'label_id': track.label_id, 'state': track.state, 'downloadable': track.downloadable, 'waveform_url': track.waveform_url, 'sharing': track.sharing, 'description': track.description, 'release_day': track.release_day, 'purchase_url': track.purchase_url, 'permalink': track.permalink, 'purchase_title': track.purchase_title, 'stream_url': track.stream_url, 'key_signature': track.key_signature, 'user_username': track.user['username'], 'user_permalink': track.user['permalink'], 'user_kind': track.user['kind'], 'user_uri': track.user['uri'], 'user_avatar_url': track.user['avatar_url'], 'user_permalink_url': track.user['permalink_url'], 'user_id_dup': track.user['id'], 'genre': track.genre, 'isrc': track.isrc, 'download_count': track.download_count, 'permalink_url': track.permalink_url, 'playback_count': track.playback_count, 'kind': track.kind, 'release_year': track.release_year, 'license': track.license, 'artwork_url': track.artwork_url, 'created_at': track.created_at, 'bpm': track.bpm, 'uri': track.uri, 'original_content_size': track.original_content_size, 'comment_count': track.comment_count, 'release': track.release, 'tag_list': track.tag_list, 'embeddable_by': track.embeddable_by}) 
 #    {u'attachments_uri': u'https://api.soundcloud.com/tracks/101369139/attachments', u'video_url': None, u'track_type': None, u'release_month': None, u'original_format': u'mp3', u'label_name': None, u'duration': 310128, u'id': 101369139, u'streamable': True, u'user_id': 50716341, u'title': u'Mc Daleste Angra Dos Reis', u'favoritings_count': 0, u'commentable': True, u'label_id': None, u'state': u'finished', u'downloadable': False, u'waveform_url': u'https://w1.sndcdn.com/9ssVt2Lko43R_m.png', u'sharing': u'public', u'description': u'', u'release_day': None, u'purchase_url': None, u'permalink': u'mc-daleste-angra-dos-reis', u'purchase_title': None, u'stream_url': u'https://api.soundcloud.com/tracks/101369139/stream', u'key_signature': None, u'user': {u'username': u'Arthur Brandalise', u'permalink': u'arthur-brandalise', u'kind': u'user', u'uri': u'https://api.soundcloud.com/users/50716341', u'avatar_url': u'https://i1.sndcdn.com/avatars-000047085500-obeiji-large.jpg?435a760', u'permalink_url': u'http://soundcloud.com/arthur-brandalise', u'id': 50716341}, u'genre': u'Funk', u'isrc': None, u'download_count': 0, u'permalink_url': u'http://soundcloud.com/arthur-brandalise/mc-daleste-angra-dos-reis', u'playback_count': 73, u'kind': u'track', u'release_year': None, u'license': u'all-rights-reserved', u'artwork_url': None, u'created_at': u'2013/07/17 02:11:32 +0000', u'bpm': None, u'uri': u'https://api.soundcloud.com/tracks/101369139', u'original_content_size': 7712965, u'comment_count': 0, u'release': None, u'tag_list': u'', u'embeddable_by': u'all'}
+        # GROUPS information about what groups users belong to 
+        print 'Creating groups table in DB....'
+        cursor.execute('''CREATE TABLE IF NOT EXISTS groups(id INTEGER, user INTEGER, PRIMARY KEY (id, user))''')
+        print('Adding data to groups table in DB.... Total num of group memberships: '+str(len(groups)))
+        for group in groups:
+            cursor.execute('''INSERT INTO groups(id, user) 
+                              VALUES(?, ?)''', 
+                              (group[0], group[1]))
+        # PLAYLISTS information about what tracks users add to playlists 
+        print 'Creating playlists table in DB....'
+        cursor.execute('''CREATE TABLE IF NOT EXISTS playlists(id INTEGER, user INTEGER, track INTEGER, PRIMARY KEY (id, user, track))''')
+        print('Adding data to playlists table in DB.... Total num of playlist entries: '+str(len(playlists)))
+        for playlist in playlists:
+            cursor.execute('''INSERT INTO playlists(id, user, track) 
+                              VALUES(?, ?, ?)''', 
+                              (playlist[0], playlist[1], playlist[2]))
+        # FAVOURITES information about what tracks a user Likes
+        print 'Creating favourites table in DB....'
+        cursor.execute('''CREATE TABLE IF NOT EXISTS favourites(user INTEGER, track INTEGER, PRIMARY KEY (user, track))''')
+        print('Adding data to favourites table in DB.... Total num of favourite entries: '+str(len(favourites)))
+        for favourite in favourites:
+            cursor.execute('''INSERT INTO favourites(user, track) 
+                              VALUES(?, ?)''', 
+                              (favourite[0], favourite[1]))
+        # COMMENTS information about what comments a user makes on tracks
+        # (restricted to the tracks produced by users in the sample)
+        print 'Creating comments table in DB....'
+        cursor.execute('''CREATE TABLE IF NOT EXISTS comments(id INTEGER PRIMARY KEY, track INTEGER, user INTEGER, content TEXT''')
+        print('Adding data to comments table in DB.... Total num of comment entries: '+str(len(comments)))
+        for comment in comments:
+            cursor.execute('''INSERT INTO comments(id, track, user, content) 
+                              VALUES(?, ?, ?, ?)''', 
+                              (comment[0], comment[1], comment[2], comment[3]))
+
         print 'Ready to commit DB to file'
         db.commit()
     # Catch the exception
@@ -334,7 +437,7 @@ def exportDataToSQLite():
         db.close()
         print('Data saved in '+dbFileName)
 
-def main(): 
-    getNewSnowballSample(15)
+def main(sampleSize = 15): 
+    getNewSnowballSample(sampleSize)
     printData() 
     exportDataToSQLite()
