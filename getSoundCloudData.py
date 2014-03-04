@@ -182,6 +182,7 @@ def collectUsersFromSeedUser(user,sampleSize):
 
 
 def getTracks():
+    print 'Getting data about users\' tracks...'
     global users
     global tracks
     for user in users:
@@ -192,6 +193,7 @@ def getTracks():
         time.sleep(timeDelay)
     
 def getGroups():
+    print 'Getting data about users\' groups...'
     global users
     global groups
     for user in users:
@@ -202,35 +204,38 @@ def getGroups():
         time.sleep(timeDelay)
 
 def getPlaylists():
+    print 'Getting data about users\' playlists...'
     global users
     global playlists
     for user in users:
         u_id = user.id 
         user_playlists = client.get('/users/'+str(u_id)+'/playlists')
         for u_playlist in user_playlists:
-            playlist.add(u_playlist)
+            playlists.add(u_playlist)
         time.sleep(timeDelay)
     
         
 def getFavourites():
+    print 'Getting data about users\' likes...'
     global users
     global favourites
     for user in users:
         u_id = user.id 
         user_favourites = client.get('/users/'+str(u_id)+'/favorites') # Note US spelling
         for u_favourite in user_favourites:
-            favourite.add(u_favourite)
+            favourites.add(u_favourite)
         time.sleep(timeDelay)
     
     
 def getComments():
+    print 'Getting data about comments on users\' tracks...'
     global users
     global comments
     for user in users:
         u_id = user.id 
         user_comments = client.get('/users/'+str(u_id)+'/comments')
         for u_comment in user_comments:
-            comment.add(u_comment)
+            comments.add(u_comment)
         time.sleep(timeDelay)
     
 
@@ -243,14 +248,17 @@ def exportDataToSQLite():
         db = sqlite3.connect(dbFileName)
         cursor = db.cursor()
         # Start with fresh database
-        cursor.execute('''DROP TABLE users''')
-        cursor.execute('''DROP TABLE x_follows_y''')
-        cursor.execute('''DROP TABLE tracks''')
+        cursor.execute('''DROP TABLE IF EXISTS users''')
+        cursor.execute('''DROP TABLE IF EXISTS x_follows_y''')
+        cursor.execute('''DROP TABLE IF EXISTS tracks''')
+        cursor.execute('''DROP TABLE IF EXISTS groups''')
+        cursor.execute('''DROP TABLE IF EXISTS playlists''')
+        cursor.execute('''DROP TABLE IF EXISTS favourites''')
+        cursor.execute('''DROP TABLE IF EXISTS comments''')
         db.commit()
         print 'Creating users table in DB....'
         # Check if table users does not exist and create it
-        cursor.execute('''CREATE TABLE IF NOT EXISTS
-                      users(id INTEGER PRIMARY KEY, permalink TEXT, username TEXT, uri TEXT,
+        cursor.execute('''CREATE TABLE IF NOT EXISTS users(id INTEGER PRIMARY KEY, permalink TEXT, username TEXT, uri TEXT,
                              permalink_url TEXT, avatar_url TEXT, country TEXT, full_name TEXT, 
                              city TEXT, description TEXT, discogs_name TEXT, myspace_name TEXT,
                              website TEXT, website_title TEXT, online TEXT, track_count INTEGER,
