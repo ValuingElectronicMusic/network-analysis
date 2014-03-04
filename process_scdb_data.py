@@ -8,64 +8,65 @@
 # of these do.
 
 import getSoundCloudData as scd
-#from sqlite3 import connect
-#
-#db_path = 'ifdb_data.sqlite'
-#
-#def get_table(tableName):
-#    '''Returns contents of one entire table from the sqlite database.'''
-#    conn = connect(db_path)
-#    with conn:
-#        curs = conn.cursor()
-#        curs.execute("SELECT * FROM {!s}".format(tableName))
-#        return curs.fetchall()
+from sqlite3 import connect
 
-class data_holder():
-    'Temp use of the data_holder class to populate the data using methods from getSoundCloud Data rather than from external db.'
+db_path = 'scdb.sqlite'
 
-    def __init__(self):
-        scd.getNewSnowballSample(15)
+def get_table(tableName):
+    '''Returns contents of one entire table from the sqlite database.'''
+    conn = connect(db_path)
+    with conn:
+        curs = conn.cursor()
+        curs.execute("SELECT * FROM {!s}".format(tableName))
+        return curs.fetchall()
 
-        # self.agents = set of SoundCloud user objects
-        self.agents = scd.agents
-        # self.x_follows_y = set of SoundCloud follow relationship tuples (x, y) where SC agent x follows SC agent y
-        self.x_follows_y = scd.x_follows_y
-        # self.tracks = set of SoundCloud track objects where tracks belong to users in self.agents
-        self.tracks = scd.tracks
-        
 #class data_holder():
-#    'An object to hold data from each of the four tables in the database.'
+#    'Temp use of the data_holder class to populate the data using methods from getSoundCloud Data rather than from external db.'
 #
 #    def __init__(self):
-##        self.receptions = set(get_table('Receptions'))
+#        scd.getNewSnowballSample(15)
+#
+#        # self.agents = set of SoundCloud user objects
+#        self.agents = scd.agents
+#        # self.x_follows_y = set of SoundCloud follow relationship tuples (x, y) where SC agent x follows SC agent y
+#        self.x_follows_y = scd.x_follows_y
+#        # self.tracks = set of SoundCloud track objects where tracks belong to users in self.agents
+#        self.tracks = scd.tracks
+        
+class data_holder():
+    'An object to hold data from each of the four tables in the database.'
+
+    def __init__(self):
+        self.agents = set(get_table('agents'))
+        self.x_follows_y = set(get_table('x_follows_y'))
 #        self.authorings = set(get_table('Authorings'))
-##        self.tracks = set(get_table('Works'))
-##        self.agents = set(get_table('Agents'))
+        self.tracks = set(get_table('tracks'))
 
 class entity_holder():
     'An object to hold data cheaply processed from those held in the above.'
 
     def __init__(self, data):
-        self.agents = {x.id for x in data.agents}
+        self.agents = {x[0] for x in data.agents}
 #        self.users = {x[0] for x in data.agents if len(x[0]) != 10}
 #        self.nonusers = {x[0] for x in data.agents if len(x[0]) == 10}
-        self.authors = {x.user_id for x in data.tracks}
+        self.authors = {x[8] for x in data.tracks}
 #        self.tracks = {x[0] for x in data.tracks}
-#        self.receivers = {x[0] for x in data.receptions}
-#        self.received = {x[1] for x in data.receptions}
-#        self.rated = {x[1] for x in data.receptions if x[2] >= 1}
-#        self.raters = {x[0] for x in data.receptions if x[2] >= 1}
-#        self.recognitions = {x[:2] for x in data.receptions # for self.recognisers 
+#        self.receivers = {x[0] for x in data.x_follows_y}
+#        self.received = {x[1] for x in data.x_follows_y}
+#        self.rated = {x[1] for x in data.x_follows_y if x[2] >= 1}
+#        self.raters = {x[0] for x in data.x_follows_y if x[2] >= 1}
+#        self.recognitions = {x[:2] for x in data.x_follows_y # for self.followers 
 #                             if x[2] >= rating_threshold}
 #        self.highrated = {x[1] for x in self.recognitions}
-#        self.recognised = {x[0] for x in data.authorings 
+#        self.followed = {x[0] for x in data.authorings 
 #                           if x[1] in self.highrated}
-        self.recognisers = {x[0] for x in data.x_follows_y}
+        self.followed = {x[1] for x in data.x_follows_y}
+        self.followers = {x[0] for x in data.x_follows_y}
 #        self.author_users = self.authors & self.users
 #        self.author_receivers = self.authors & self.receivers
 #        self.author_raters = self.authors & self.raters
-#        self.author_recognisers = self.authors & self.recognisers
-#        self.recognised_recognisers = self.recognised & self.recognisers
+#        self.author_recognisers = self.authors & self.followers
+#        self.recognised_recognisers = self.followed & self.followers
 #        self.active_users = self.author_users | self.receivers
 
 #class attribute_holder():
@@ -78,16 +79,16 @@ class entity_holder():
 #
 
 def printData(data):
-    print('data.agents (max 10, selected at random from '+str(len(data.agents))+' data.agents)')
+    print('data.agents (max 10, selected at random from '+str(len(data.agents))+' agents)')
     temp_copy = data.agents.copy()
     count=0;
     while (count<10 and len(temp_copy)>0):
         popped = temp_copy.pop()
-        print(str(count)+'. agent '+str(popped.id)+' '+popped.username)
+        print(str(count)+'. agent '+str(popped[0])+' '+popped[2])
         count = count+1
     
     print ''
-    print('x_follows_y relationships (max 10 selected at random from '+str(len(data.x_follows_y))+' follow relationships data.x_follows_y)')
+    print('data.x_follows_y relationships (max 10 selected at random from '+str(len(data.x_follows_y))+' follow relationships)')
     temp_copy = data.x_follows_y.copy()
     count=0;
     while (count<10 and len(temp_copy)>0):
@@ -96,20 +97,48 @@ def printData(data):
         count = count+1
         
     print ''
-    print('data.tracks (max 10 selected at random from '+str(len(data.tracks))+' data.tracks)')
+    print('data.tracks (max 10 selected at random from '+str(len(data.tracks))+' tracks)')
     temp_copy = data.tracks.copy()
     count=0;
     while (count<10 and len(temp_copy)>0):
         popped = temp_copy.pop()
         try:  # might throw a type error if there are strange characters in the title or genre for a track
-            print(str(count)+'. agent id: '+str(popped.user_id)+', track id: '+str(popped.id)+', title: '+popped.title+', genre: '+popped.genre)
+            print(str(count)+'. agent id: '+str(popped[8])+', track id: '+str(popped[0])+', title: '+popped[9]+', genre: '+popped[31])
         except Exception as e:
-            print(str(count)+'. agent id: '+str(popped.user_id)+', track id: '+str(popped.id)+', title and genre - error in displaying, '+ e.message)
+            print(str(count)+'. agent id: '+str(popped[8])+', track id: '+str(popped[0])+', title and genre - error in displaying, '+ e.message)
         count = count+1
+#    print('data.agents (max 10, selected at random from '+str(len(data.agents))+' data.agents)')
+#    temp_copy = data.agents.copy()
+#    count=0;
+#    while (count<10 and len(temp_copy)>0):
+#        popped = temp_copy.pop()
+#        print(str(count)+'. agent '+str(popped.id)+' '+popped.username)
+#        count = count+1
+#    
+#    print ''
+#    print('x_follows_y relationships (max 10 selected at random from '+str(len(data.x_follows_y))+' follow relationships data.x_follows_y)')
+#    temp_copy = data.x_follows_y.copy()
+#    count=0;
+#    while (count<10 and len(temp_copy)>0):
+#        popped = temp_copy.pop()
+#        print(str(count)+'. agent id: '+str(popped[0])+' follows '+str(popped[1]))
+#        count = count+1
+#        
+#    print ''
+#    print('data.tracks (max 10 selected at random from '+str(len(data.tracks))+' data.tracks)')
+#    temp_copy = data.tracks.copy()
+#    count=0;
+#    while (count<10 and len(temp_copy)>0):
+#        popped = temp_copy.pop()
+#        try:  # might throw a type error if there are strange characters in the title or genre for a track
+#            print(str(count)+'. agent id: '+str(popped.user_id)+', track id: '+str(popped.id)+', title: '+popped.title+', genre: '+popped.genre)
+#        except Exception as e:
+#            print(str(count)+'. agent id: '+str(popped.user_id)+', track id: '+str(popped.id)+', title and genre - error in displaying, '+ e.message)
+#        count = count+1
 
 def printEntities(entities):
     print ''
-    print 'entities.agents (max 10 selected at random)'
+    print('entities.agents - max 10 selected at random from total of '+str(len(entities.agents)))
     temp_copy = entities.agents.copy()
     count=0;
     while (count<10 and len(temp_copy)>0):
@@ -118,7 +147,7 @@ def printEntities(entities):
         count = count+1
     
     print ''
-    print 'entities.authors (max 10 selected at random)'
+    print('entities.authors (max 10 selected at random from total of '+str(len(entities.authors)))
     temp_copy = entities.authors.copy()
     count=0;
     while (count<10 and len(temp_copy)>0):
@@ -127,8 +156,17 @@ def printEntities(entities):
         count = count+1
 
     print ''
-    print 'entities.recognisers (max 10 selected at random)'
-    temp_copy = entities.recognisers.copy()
+    print('entities.followers (max 10 selected at random from total of '+str(len(entities.followers)))
+    temp_copy = entities.followers.copy()
+    count=0;
+    while (count<10 and len(temp_copy)>0):
+        popped = temp_copy.pop()
+        print(str(count)+'. agent id: '+str(popped))
+        count = count+1
+
+    print ''
+    print('entities.followed (max 10 selected at random from total of '+str(len(entities.followed)))
+    temp_copy = entities.followed.copy()
     count=0;
     while (count<10 and len(temp_copy)>0):
         popped = temp_copy.pop()
@@ -176,14 +214,12 @@ def printEntities(entities):
 #            'quill':set(Quill_list), 'eamon':set(Eamon_list),
 #            'scott':set(Scott_list), 'hugo':set(Hugo_list)}
 #
-def name_entity(id,entity_data):
-    '''Returns the human-readable name associated with an ID string.
+def name_agent(id,data_agents):
+    '''Returns the human-readable name associated with an ID of an agent.'''
 
-    To get agent names, pass in the agents variable of a data_holder
-    object; to get work names, pass in the tracks variable of a
-    data_holder object.'''
-
-    return next((a[1] for a in entity_data if a[0] == id))
+    for a in data_agents:
+        if (a[0]==id):
+            return a[2]
 
 #def year_of(work_ID,data):
 #    'Returns the year a particular work was released.'
@@ -219,41 +255,39 @@ def name_entity(id,entity_data):
 #    return {authoring[0] for authoring in data.authorings 
 #            if authoring[1] == work}
 #
-def works_by(author,data):
-    'Returns set of tracks for which an author is credited.'
+#def works_by(author,data):
+#    'Returns set of tracks for which an author is credited.'
+#
+#    return {track[0] for track in data.tracks
+#            if track[8] == author}
 
-    return {track.id for track in data.tracks
-            if track.user_id == author}
+#def recognisers_of(work,entities,data):
+#    '''Returns set of agents who rated a given work highly.
+#
+#    Note that ratings of tracks for which the rater is credited as an
+#    author are excluded.'''
+#
+#    return {rec[0] for rec in entities.recognitions
+#            if rec[1] == work
+#            and rec[1] not in works_by(rec[0],data)}
 
-def recognisers_of(work,entities,data):
-    '''Returns set of agents who rated a given work highly.
+def followers_of_author(author,data):
+    '''Returns set of agents who follow a given author'''
 
-    Note that ratings of tracks for which the rater is credited as an
-    author are excluded.'''
-
-    return {rec[0] for rec in entities.recognitions
-            if rec[1] == work
-            and rec[1] not in works_by(rec[0],data)}
-
-def recognisers_of_author(author,entities,data):
-    '''Returns set of agents who rated a given author's tracks highly.
-
-    Note that an agent's ratings of tracks that he or she co-authored
-    with the author in question are excluded.'''
-
-    recognisers = set([])
-    for work in works_by(author,data):
-        recognisers = recognisers | recognisers_of(work,entities,data)
-    return recognisers
+    followers = set([])
+    for follow in data.x_follows_y:
+        if (follow[1]==author):
+            followers = followers | follow[0]
+    return followers
 
 #def total_receptions_attribute(attribute,attr_entity_dict,data):
-#    'Returns all receptions of tracks with the given value for one variable.'
+#    'Returns all x_follows_y of tracks with the given value for one variable.'
 #
-#    return {reception for reception in data.receptions
+#    return {reception for reception in data.x_follows_y
 #            if reception[1] in attr_entity_dict[attribute]}
 #
 #def dict_total_receptions_attribute_type(att_type,att_entity_dict,data):
-#    '''Returns a dictionary of receptions of tracks for one variable.
+#    '''Returns a dictionary of x_follows_y of tracks for one variable.
 #
 #    Key is every value which that variable has in the data. I used
 #    this for comparing the number of ratings and reviews received by
@@ -285,7 +319,7 @@ def recognisers_of_author(author,entities,data):
 #
 #    year_works = attribute_entity_dict(attributes.years,data.tracks,2)
 #    year_receptions = dict_total_receptions_attribute_type(attributes.years,year_works,data)
-#    print 'Works and receptions by year'
+#    print 'Works and x_follows_y by year'
 #    print 'Year\tWorks\tReceptions of those tracks'
 #    for y in attributes.years:
 #        print '{}\t{}\t{}'.format(y,len(year_works[y]),len(year_receptions[y]))

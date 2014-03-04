@@ -28,39 +28,35 @@ import process_scdb_data as pscd
 #                                           & sys_dict[system])
 #    return sys_used
 #
-def recognition_dict(entities,data):
-    '''Returns a dictionary of recognitions.
-
-    Keys are authors, values are agents who recognised those authors.'''
-
-    return {author:pscd.recognisers_of_author(author,entities,data) 
-            for author in entities.authors}
-
-def recognition_tuples(recognisers,authors,rec_dict):
-    '''Returns a list of tuples representing recognitions.
-
-    This can be passed directly into a NetworkX digraph object as a
-    representation of the graph's arcs.'''
-
-    return [(recogniser,author) 
-            for recogniser in recognisers 
-            for author in authors
-            if recogniser in rec_dict[author]]
+#def recognition_dict(entities,data):
+#    '''Returns a dictionary of recognitions.
+#
+#    Keys are authors, values are agents who recognised those authors.'''
+#
+#    return {author:pscd.recognisers_of_author(author,data) 
+#            for author in entities.authors}
+#
+#def recognition_tuples(recognisers,authors,rec_dict):
+#    '''Returns a list of tuples representing recognitions.
+#
+#    This can be passed directly into a NetworkX digraph object as a
+#    representation of the graph's arcs.'''
+#
+#    return [(recogniser,author) 
+#            for recogniser in recognisers 
+#            for author in authors
+#            if recogniser in rec_dict[author]]
 
 def build_network(entities,data,subset=None):
     '''Creates a NetworkX DiGraph object based on recognitions between
     creators.'''
 
-    recognisers = (entities.recognisers & subset if subset 
-                   else entities.recognisers)
-    authors = (entities.authors & subset if subset 
-               else entities.authors)
-
+#    followers = (entities.x_follows_y & subset if subset 
+#                   else entities.x_follows_y)
+#    authors = (entities.authors & subset if subset 
+#               else entities.authors)
     g = nx.DiGraph()
-    g.add_edges_from(recognition_tuples(recognisers,
-                                        authors,
-                                        recognition_dict(entities,data)))
-
+    g.add_edges_from(data.x_follows_y)
     return g
 
 def reduce_network(g, minimum_incoming=1):
@@ -78,7 +74,7 @@ def reduce_network(g, minimum_incoming=1):
         g.remove_nodes_from(to_drop)
     return g
 
-def recognisers_only(g):
+def followers_only(g):
     '''Removes nodes without outgoing arcs.
 
     Useful because it leaves only those nodes that are really
@@ -144,7 +140,7 @@ def draw_network(g,filename,point=True,fac=10,siz=0.2,larger=False):
     return ag
 
 def centrality_dict_to_list(cd,data):
-    return sorted([(y,pscd.name_entity(x,data.agents)) 
+    return sorted([(y,pscd.name_agent(x,data.agents)) 
                    for x,y in cd.iteritems()])[::-1]
 
 def eigenvector_ranking(g,data):
@@ -166,20 +162,26 @@ def demonstrate():
     pscd.printEntities(entities)
     g1 = build_network(entities,data)
     g2 = reduce_network(g1)
-    g3 = recognisers_only(g2)
-    d1 = draw_network(g1,'test1.png') # Extension determines file type.
-    d2 = draw_network(g2,'test2.png') # SVG, JPEG, EPS, etc are also
-    d3 = draw_network(g3,'test3.png') # possible.
+    g3 = followers_only(g2)
+    d1 = draw_network(g1,'graph_full_network.png') # Extension determines file type.
+    d2 = draw_network(g2,'graph_reduced_network.png') # SVG, JPEG, EPS, etc are also
+    d3 = draw_network(g3,'graph_reduced_and_followers_only.png') # possible.
 
+    print ''
     i_r = in_degree_ranking(g1,data)
     print 'Pos\tName\tIndegree'
     for i in range(len(i_r)-1):
-        print '{}\t{}\t{}'.format(i+1,i_r[i][1],i_r[i][0])
+        #print '{}\t{}\t{}'.format(i+1,i_r[i][1],i_r[i][0])
+        print(str(i+1)+'\t'+i_r[i][1]+'\t'+str(i_r[i][0]))
+    
+    print ''
     e_r = eigenvector_ranking(g1,data)
     print 'Pos\tName\tEigenvector'
     for i in range(len(e_r)-1):
-        print '{}\t{}\t{}'.format(i+1,e_r[i][1],e_r[i][0])
+        print(str(i+1)+'\t'+e_r[i][1]+'\t'+str(e_r[i][0]))
+    
+    print ''
     p_r = pagerank_ranking(g1,data)
     print 'Pos\tName\tPageRank'
     for i in range(len(p_r)-1):
-        print '{}\t{}\t{}'.format(i+1,p_r[i][1],p_r[i][0])
+        print(str(i+1)+'\t'+p_r[i][1]+'\t'+str(p_r[i][0]))
