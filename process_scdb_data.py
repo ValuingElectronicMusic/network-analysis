@@ -41,7 +41,7 @@ class entity_holder():
         self.users = {x[0] for x in data.users}
 #        self.users = {x[0] for x in data.users if len(x[0]) != 10}
 #        self.nonusers = {x[0] for x in data.users if len(x[0]) == 10}
-        self.producers = {x[8] for x in data.tracks}
+        self.producers = {x[1] for x in data.tracks}
 #        self.tracks = {x[0] for x in data.tracks}
 #        self.receivers = {x[0] for x in data.x_follows_y}
 #        self.received = {x[1] for x in data.x_follows_y}
