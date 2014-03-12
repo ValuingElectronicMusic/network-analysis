@@ -146,7 +146,7 @@ def clientGet(request, maxAttempts=10):
         except Exception as e:
             count = count+1
             time.sleep(timeDelay)
-            print('Problem connecting to SoundCloud client, error '+e.message+'. Trying again... attempt '+str(count)+' of '+str(maxAttempts))
+            print('Problem connecting to SoundCloud client, error '+str(e)+'. Trying again... attempt '+str(count)+' of '+str(maxAttempts))
     if (not(success)):
         print('***Unable to retrieve information from SoundCloud for the request: '+request)
     return result
