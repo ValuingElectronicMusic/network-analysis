@@ -119,11 +119,11 @@ def getRandomUser():
 
 
 def getXUserIDs(limit=10):
-    users = set()
+    temp_users = set()
     for i in range(0,limit):
         #print i
-        users.add(getRandomUser().id)
-    return users
+        temp_users.add(getRandomUser().id)
+    return temp_users
 
 
 def getAllFollowers(user):
@@ -190,9 +190,9 @@ def getNewSnowballSample(sampleSize=10):
         if (not(user.id in user_ids)):
             users.add(user)
             user_ids.append(user.id)
-        print('Seed user = '+str(user.id))
-        if (len(users)<sampleSize):  #in case adding the new user to our sample brings us to our desired samplesize
-            collectUsersFromSeedUser(user,sampleSize)
+            print('Seed user = '+str(user.id))
+            if (len(users)<sampleSize):  #in case adding the new user to our sample brings us to our desired samplesize
+                collectUsersFromSeedUser(user,sampleSize)
     # populate the contents of the remaining global variables  with data relating to the new sample of users
     getTracks()
     getFavourites()
@@ -212,10 +212,10 @@ def collectUsersFromSeedUser(user,sampleSize):
     while (len(users)<sampleSize and count<len(followers)): # repeat till sample size reached
 #         print('length = '+str(len(users))+', sampleSize = '+str(sampleSize)+', count = '+str(count)+', len followers = '+str(len(followers)))
 #         print('user '+str(followers[count].id)+' follows '+str(user.id))
-        # Add the follower to the set of SC users
+        # Add the follower to the set of SC users (if not already 
         if (not(followers[count].id in user_ids)):
             users.add(followers[count]) 
-            user_ids.append(followers[count])
+            user_ids.append(followers[count].id)
         # Add follows relationships between the follower and this seed user
         x_follows_y.add((followers[count].id, user.id))
         count = count+1
@@ -230,7 +230,7 @@ def collectUsersFromSeedUser(user,sampleSize):
         # Add the follower to the set of SC users
         if (not(followings[count].id in user_ids)):       
             users.add(followings[count]) 
-            user_ids.append(followings[count])
+            user_ids.append(followings[count].id)
         # Add follows relationships between the seed user and the user they follow
         x_follows_y.add((user.id, followings[count].id))
         count = count+1
