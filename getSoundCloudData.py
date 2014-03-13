@@ -294,7 +294,6 @@ def getComments():
         u_id = user.id 
         user_comments = clientGet('/users/'+str(u_id)+'/comments')
         for u_comment in user_comments:
-            comments.add(u_comment)
             if (not(u_comment.id in comment_ids)):
                 comments.add(u_comment)
                 comment_ids.append(u_comment.id)
