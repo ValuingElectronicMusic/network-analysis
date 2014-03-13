@@ -27,6 +27,9 @@ user_ids = list()
 # x_follows_y = set of tuples (x, y) representing follow relationships in SoundCloud where x follows y (and x and y are both in "users")
 x_follows_y = set()
 # tracks = set of SoundCloud track objects where tracks belong to users in "users"
+# NB tracks does *not* include tracks by non-sampled users, even if a sampled user has commented or favourited that track
+# ids of these tracks can be obtained through the relevant fields in the favourites/comments sets
+# and the ids can be used to get more information from SoundCloud on those tracks if required  
 tracks = set()
 track_ids = list()
 # TODO add the four items below as DB tables
@@ -249,7 +252,7 @@ def collectUsersFromSeedUser(user,sampleSize):
 
 
 def getTracks():
-    print 'Getting data about users\' tracks...'
+    print 'Getting data about tracks produced by sampled users...'
     global users
     global tracks
     global track_ids
@@ -263,7 +266,7 @@ def getTracks():
     
     
 def getGroups():
-    print 'Getting data about users\' groups...'
+    print 'Getting data about sampled users\' groups...'
     global users
     global groups
     for user in users:
@@ -275,7 +278,7 @@ def getGroups():
 
         
 def getFavourites():
-    print 'Getting data about users\' likes...'
+    print 'Getting data about sampled users\' favourited tracks...'
     global users
     global favourites
     for user in users:
@@ -286,7 +289,7 @@ def getFavourites():
     
     
 def getComments():
-    print 'Getting data about comments on users\' tracks...'
+    print 'Getting data about all comments made by sampled users...'
     global users
     global comments
     global comment_ids
@@ -365,18 +368,19 @@ def exportDataToSQLite():
             except Exception as e:
                 print('Error adding ['+str(follow[0])+' follows '+str(follow[1])+'] to the database: '+e.message+' '+str(e.args))
         # TRACKS
+        #issue with label_id? label_id field removed (can use 'label_name' to detect existence of a label)
         print 'Creating tracks table in DB....'
         cursor.execute('''CREATE TABLE IF NOT EXISTS tracks(
         id INTEGER PRIMARY KEY, user_id INTEGER, title TEXT,   
         permalink_url TEXT,  track_type TEXT, state TEXT, created_at TEXT, 
         original_format TEXT, description TEXT, sharing TEXT,   
         genre TEXT, duration INTEGER, key_signature TEXT, bpm INTEGER, 
-        license TEXT, label_id INTEGER, label_name TEXT,
+        license TEXT, label_name TEXT, 
         playback_count INTEGER,  
         favoritings_count INTEGER, 
         streamable TEXT, stream_url TEXT, 
         downloadable TEXT, download_count INTEGER, 
-        commentable TEXT, comment_count INTEGER,
+        commentable TEXT,
         purchase_url TEXT, artwork_url TEXT, video_url TEXT, embeddable_by TEXT,
         release TEXT, release_month INTEGER, release_day INTEGER, release_year INTEGER,  
         tag_list TEXT)''')   
@@ -387,29 +391,29 @@ def exportDataToSQLite():
         permalink_url,  track_type, state, created_at, 
         original_format, description, sharing,   
         genre, duration, key_signature, bpm, 
-        license, label_id, label_name,
+        license, label_name,
         playback_count,  
         favoritings_count, 
         streamable, stream_url, 
         downloadable, download_count, 
-        commentable, comment_count,
+        commentable, 
         purchase_url, artwork_url, video_url, embeddable_by,
         release, release_month, release_day, release_year,  
-        tag_list) 
+        tag_list)  
             VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 
                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 
                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 
-                   ?, ?, ?, ?)''',
+                   ?, ?)''',
                 (track.id, track.user_id, track.title,   
                 track.permalink_url, track.track_type, track.state, track.created_at, 
                 track.original_format, track.description, track.sharing,   
                 track.genre, track.duration, track.key_signature, track.bpm, 
-                track.license, track.label_id, track.label_name,
+                track.license, track.label_name,
                 track.playback_count,  
                 track.favoritings_count, 
                 track.streamable, track.stream_url, 
                 track.downloadable, track.download_count, 
-                track.commentable, track.comment_count,
+                track.commentable, 
                 track.purchase_url, track.artwork_url, track.video_url, track.embeddable_by,
                 track.release, track.release_month, track.release_day, track.release_year,  
                 track.tag_list)) 
