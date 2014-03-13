@@ -15,21 +15,29 @@ import time
 
 
 # The following global variables represent information about the SoundCloud users in our
-# sample set. We only collect data on users in our sample set, discarding other data  
+# sample set. We only collect data on users in our sample set, discarding other data
+# For each set of SoundCloud *objects* (excluding sets of tuples), 
+# we maintain a list of ids of members in that set.
+# This is to avoid duplicates appearing in the set, due to two identical SoundCloud
+# objects not being recognised as being the same object.
+  
 # users = set of SoundCloud user objects
 users = set()
+user_ids = list()
 # x_follows_y = set of tuples (x, y) representing follow relationships in SoundCloud where x follows y (and x and y are both in "users")
 x_follows_y = set()
 # tracks = set of SoundCloud track objects where tracks belong to users in "users"
 tracks = set()
+track_ids = list()
 # TODO add the four items below as DB tables
-# groups - set of SoundCloud groups that a user has joined
+# groups - set of tuples representing SoundCloud groups that a user has joined
 groups = set()
 # favourites (NB English spelling here, US spelling on SoundCloud) 
-#    - tracks that a user has 'liked'
+#    - set of tuples representing tracks that a user has 'liked'
 favourites = set()
 # comments - set of SoundCloud comments for a particular track
 comments = set()
+comment_ids = list()
 
 
 def printData():
@@ -159,21 +167,29 @@ def getNewSnowballSample(sampleSize=10):
     N.B. This wipes any previously collected samples that are only stored in local memory '''
     
     global users
+    global user_ids
     global tracks
+    global track_ids
     global x_follows_y
     global groups
     global favourites
+    global comments
+    global comment_ids
     users = set() # initialised to empty
+    user_ids = list()
     x_follows_y = set() # initialised to empty
     tracks = set() # initialised to empty
+    track_ids = list()
     groups = set() # initialised to empty
     favourites = set() # initialised to empty
     comments = set() # initialised to empty
+    comment_ids = list()
     print('Generating snowball sample with a sample size of '+str(sampleSize))
     while (len(users)<sampleSize):
         user = getRandomUser() # get a new starting point at random        
-        if (not(user in users)):
+        if (not(user.id in user_ids)):
             users.add(user)
+            user_ids.append(user.id)
         print('Seed user = '+str(user.id))
         if (len(users)<sampleSize):  #in case adding the new user to our sample brings us to our desired samplesize
             collectUsersFromSeedUser(user,sampleSize)
@@ -187,6 +203,7 @@ def getNewSnowballSample(sampleSize=10):
 def collectUsersFromSeedUser(user,sampleSize):
     ''' Populate the users and x_follows_y sets with data sampled from SoundCloud '''
     global users
+    global user_ids
     global x_follows_y
     # look for all followers of user    
     followers = getAllFollowers(user)
@@ -196,8 +213,9 @@ def collectUsersFromSeedUser(user,sampleSize):
 #         print('length = '+str(len(users))+', sampleSize = '+str(sampleSize)+', count = '+str(count)+', len followers = '+str(len(followers)))
 #         print('user '+str(followers[count].id)+' follows '+str(user.id))
         # Add the follower to the set of SC users
-        if (not(followers[count] in users)):
+        if (not(followers[count].id in user_ids)):
             users.add(followers[count]) 
+            user_ids.append(followers[count])
         # Add follows relationships between the follower and this seed user
         x_follows_y.add((followers[count].id, user.id))
         count = count+1
@@ -210,8 +228,9 @@ def collectUsersFromSeedUser(user,sampleSize):
 #         print('length = '+str(len(users))+', sampleSize = '+str(sampleSize)+', count = '+str(count)+', len followings = '+str(len(followings)))
 #         print('user '+str(user.id)+' follows '+str(followings[count].id))
         # Add the follower to the set of SC users
-        if (not(followings[count] in users)):       
-            users.add(followings[count]) # NB add() won't duplicate a member of a set - if they are already in the set, they are not added again
+        if (not(followings[count].id in user_ids)):       
+            users.add(followings[count]) 
+            user_ids.append(followings[count])
         # Add follows relationships between the seed user and the user they follow
         x_follows_y.add((user.id, followings[count].id))
         count = count+1
@@ -233,12 +252,15 @@ def getTracks():
     print 'Getting data about users\' tracks...'
     global users
     global tracks
+    global track_ids
     for user in users:
         u_id = user.id 
         user_tracks = clientGet('/users/'+str(u_id)+'/tracks')
         for u_track in user_tracks:
-            if (not(u_track in tracks)):
+            if (not(u_track.id in track_ids)):
                 tracks.add(u_track)
+                track_ids.append(u_track.id)
+    
     
 def getGroups():
     print 'Getting data about users\' groups...'
@@ -251,7 +273,6 @@ def getGroups():
             if (not(u_group in groups)):
                 groups.add((u_id, u_group.id))
 
-
         
 def getFavourites():
     print 'Getting data about users\' likes...'
@@ -261,9 +282,24 @@ def getFavourites():
         u_id = user.id 
         user_favourites = clientGet('/users/'+str(u_id)+'/favorites') # Note US spelling
         for u_favourite in user_favourites:
-            favourites.add((u_id, u_favourite.id))
+            favourites.add((u_id, u_favourite.id))    
     
     
+def getComments():
+    print 'Getting data about comments on users\' tracks...'
+    global users
+    global comments
+    global comment_ids
+    for user in users:
+        u_id = user.id 
+        user_comments = clientGet('/users/'+str(u_id)+'/comments')
+        for u_comment in user_comments:
+            comments.add(u_comment)
+            if (not(u_comment.id in comment_ids)):
+                comments.add(u_comment)
+                comment_ids.append(u_comment.id)
+    
+ 
 #def getPlaylists():
 #    print 'Getting data about users\' playlists...'
 #    global users
@@ -274,18 +310,8 @@ def getFavourites():
 #        for u_playlist in user_playlists:
 #            for u_track in u_playlist.tracks
 #                playlists.add((u_id, u_playlist.id, u_track.id))
-    
-    
-def getComments():
-    print 'Getting data about comments on users\' tracks...'
-    global users
-    global comments
-    for user in users:
-        u_id = user.id 
-        user_comments = clientGet('/users/'+str(u_id)+'/comments')
-        for u_comment in user_comments:
-            comments.add(u_comment)
-    
+
+
 
 def exportDataToSQLite():
     global users
@@ -340,50 +366,6 @@ def exportDataToSQLite():
             except Exception as e:
                 print('Error adding ['+str(follow[0])+' follows '+str(follow[1])+'] to the database: '+e.message+' '+str(e.args))
         # TRACKS
-#        attachments_uri
-#        video_url
-#        track_type
-#        release_month
-#        original_format
-#        label_name
-#        duration
-#        id
-#        streamable
-#        user_id
-#        title
-#        favoritings_count
-#        commentable
-#        label_id
-#        state
-#        downloadable
-#        waveform_url
-#        sharing
-#        description
-#        release_day
-#        purchase_url
-#        permalink
-#        purchase_title
-#        stream_url
-#        key_signature
-#        user
-#        genre
-#        isrc
-#        download_count
-#        permalink_url
-#        playback_count
-#        kind
-#        release_year
-#        license
-#        artwork_url
-#        created_at
-#        bpm
-#        uri
-#        original_content_size
-#        comment_count
-#        release
-#        tag_list
-#        embeddable_by
-
         print 'Creating tracks table in DB....'
         cursor.execute('''CREATE TABLE IF NOT EXISTS tracks(
         id INTEGER PRIMARY KEY, user_id INTEGER, title TEXT,   
