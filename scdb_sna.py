@@ -121,28 +121,39 @@ def demonstrate():
     pscd.printData(data)
     entities = pscd.entity_holder(data)
     pscd.printEntities(entities)
+    print ''
+    print('Building network...')
     g1 = build_network(entities,data)
+    print('Reducing the built network to only those followed by other users...')
     g2 = reduce_network(g1)
+    print('Reducing the built network further to followers_only...')
     g3 = followers_only(g2)
     d1 = draw_network(g1,'graph_full_network.png') # Extension determines file type.
     d2 = draw_network(g2,'graph_reduced_network.png') # SVG, JPEG, EPS, etc are also
     d3 = draw_network(g3,'graph_reduced_and_followers_only.png') # possible.
 
     print ''
+    print 'Calculating rankings...'
     i_r = in_degree_ranking(g1,data)
-    print 'Pos\tName\tIndegree'
+    print 'Pos\tName\tIndegree (top 20)'
     for i in range(len(i_r)-1):
+        if (i>=20): 
+            break
         #print '{}\t{}\t{}'.format(i+1,i_r[i][1],i_r[i][0])
         print(str(i+1)+'\t'+i_r[i][1]+'\t'+str(i_r[i][0]))
     
     print ''
     e_r = eigenvector_ranking(g1,data)
-    print 'Pos\tName\tEigenvector'
+    print 'Pos\tName\tEigenvector (top 20)'
     for i in range(len(e_r)-1):
+        if (i>=20): 
+            break
         print(str(i+1)+'\t'+e_r[i][1]+'\t'+str(e_r[i][0]))
     
     print ''
     p_r = pagerank_ranking(g1,data)
-    print 'Pos\tName\tPageRank'
+    print 'Pos\tName\tPageRank (top 20)'
     for i in range(len(p_r)-1):
+        if (i>=20): 
+            break
         print(str(i+1)+'\t'+p_r[i][1]+'\t'+str(p_r[i][0]))
