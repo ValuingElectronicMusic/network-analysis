@@ -8,59 +8,16 @@
 # do.
 
 import networkx as nx  # @UnresolvedImport
-import pygraphviz as pgv   # @UnresolvedImport
-import process_ifdb_data as pid
+import pygraphviz as pgv # @UnresolvedImport
+import process_scdb_data as pscd
 
-sys_list=['adrift','hugo','inform','tads','zil']
-
-def author_system_dict(authors,sys_dict,data):
-    '''Returns a dictionary of dictionaries representing authoring system use.
-
-    Keys are authors. Values are dictionaries where keys are authoring
-    systems and values are integers indicating how many works an
-    author has released with each authoring system.'''
-
-    sys_used = {}
-    for author in authors:
-        sys_used[author]={}
-        for system in sys_list:
-            sys_used[author][system] = len(pid.works_by(author,data)
-                                           & sys_dict[system])
-    return sys_used
-
-def recognition_dict(entities,data):
-    '''Returns a dictionary of recognitions.
-
-    Keys are authors, values are agents who recognised those authors.'''
-
-    return {author:pid.recognisers_of_author(author,entities,data) 
-            for author in entities.authors}
-
-def recognition_tuples(recognisers,authors,rec_dict):
-    '''Returns a list of tuples representing recognitions.
-
-    This can be passed directly into a NetworkX digraph object as a
-    representation of the graph's arcs.'''
-
-    return [(recogniser,author) 
-            for recogniser in recognisers 
-            for author in authors
-            if recogniser in rec_dict[author]]
 
 def build_network(entities,data,subset=None):
     '''Creates a NetworkX DiGraph object based on recognitions between
     creators.'''
 
-    recognisers = (entities.recognisers & subset if subset 
-                   else entities.recognisers)
-    authors = (entities.authors & subset if subset 
-               else entities.authors)
-
     g = nx.DiGraph()
-    g.add_edges_from(recognition_tuples(recognisers,
-                                        authors,
-                                        recognition_dict(entities,data)))
-
+    g.add_edges_from(data.x_follows_y)
     return g
 
 def reduce_network(g, minimum_incoming=1):
@@ -78,12 +35,12 @@ def reduce_network(g, minimum_incoming=1):
         g.remove_nodes_from(to_drop)
     return g
 
-def recognisers_only(g):
+def followers_only(g):
     '''Removes nodes without outgoing arcs.
 
     Useful because it leaves only those nodes that are really
-    participating in the network. In the case of my interactive
-    fiction data, it gets rid of "historic" authors who never used the
+    participating in the network. In the case of the SoundCloud
+    data, it gets rid of "historic" users who never used the
     network but are admired by network members.'''
 
     g = g.copy()
@@ -144,7 +101,7 @@ def draw_network(g,filename,point=True,fac=10,siz=0.2,larger=False):
     return ag
 
 def centrality_dict_to_list(cd,data):
-    return sorted([(y,pid.name_entity(x,data.agents)) 
+    return sorted([(y,pscd.getUserName(x,data.users)) 
                    for x,y in cd.iteritems()])[::-1]
 
 def eigenvector_ranking(g,data):
@@ -160,37 +117,32 @@ def in_degree_ranking(g,data):
 def demonstrate():
     'This is just there to show how things work. It may take some time.'
 
-    print 'Creating data holder'
-    data = pid.data_holder()
-
-    print 'getting entities from data'
-    entities = pid.entity_holder(data)
-    
-    print'building network of entities from the data'
+    data = pscd.data_holder()
+    pscd.printData(data)
+    entities = pscd.entity_holder(data)
+    pscd.printEntities(entities)
     g1 = build_network(entities,data)
-
-    print 'reducing the network'
     g2 = reduce_network(g1)
-    
-    print 'filtering network to include recognisers only'
-    g3 = recognisers_only(g2)
-    
-    print 'drawing the networks, see test1.png, test2.png, test3.png'
-    d1 = draw_network(g1,'test1.png') # Extension determines file type.
-    d2 = draw_network(g2,'test2.png') # SVG, JPEG, EPS, etc are also
-    d3 = draw_network(g3,'test3.png') # possible.
+    g3 = followers_only(g2)
+    d1 = draw_network(g1,'graph_full_network.png') # Extension determines file type.
+    d2 = draw_network(g2,'graph_reduced_network.png') # SVG, JPEG, EPS, etc are also
+    d3 = draw_network(g3,'graph_reduced_and_followers_only.png') # possible.
 
+    print ''
     i_r = in_degree_ranking(g1,data)
     print 'Pos\tName\tIndegree'
-    for i in range(10):
-        print '{}\t{}\t{}'.format(i+1,i_r[i][1],i_r[i][0])
-        
+    for i in range(len(i_r)-1):
+        #print '{}\t{}\t{}'.format(i+1,i_r[i][1],i_r[i][0])
+        print(str(i+1)+'\t'+i_r[i][1]+'\t'+str(i_r[i][0]))
+    
+    print ''
     e_r = eigenvector_ranking(g1,data)
     print 'Pos\tName\tEigenvector'
-    for i in range(10):
-        print '{}\t{}\t{}'.format(i+1,e_r[i][1],e_r[i][0])
-        
+    for i in range(len(e_r)-1):
+        print(str(i+1)+'\t'+e_r[i][1]+'\t'+str(e_r[i][0]))
+    
+    print ''
     p_r = pagerank_ranking(g1,data)
     print 'Pos\tName\tPageRank'
-    for i in range(10):
-        print '{}\t{}\t{}'.format(i+1,p_r[i][1],p_r[i][0])
+    for i in range(len(p_r)-1):
+        print(str(i+1)+'\t'+p_r[i][1]+'\t'+str(p_r[i][0]))
