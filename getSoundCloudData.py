@@ -13,6 +13,7 @@ client = soundcloud.Client(client_id=client.get_client_id())
 import sqlite3
 import time
 
+requestCount = 0
 
 # The following global variables represent information about the SoundCloud users in our
 # sample set. We only collect data on users in our sample set, discarding other data
@@ -23,7 +24,8 @@ import time
   
 # users = set of SoundCloud user objects
 users = set()
-user_ids = list()
+added_user_ids = list()
+user_ids_to_explore = list()
 # x_follows_y = set of tuples (x, y) representing follow relationships in SoundCloud where x follows y (and x and y are both in "users")
 x_follows_y = set()
 # tracks = set of SoundCloud track objects where tracks belong to users in "users"
@@ -120,6 +122,76 @@ def getRandomUser():
             userfound = True    
     return user
 
+def getRandomLondonEMUser():
+    userfound = False
+    while userfound == False: # SoundCloud has about 55 million users at this time - return random number between 0 and 200 million
+        userId = random.randint(0, 200000000)
+        try:
+            user = client.get('/users/' + str(userId))
+        except Exception:
+            pass
+        else:
+            city = lowerCaseStr(user.city)
+            country = lowerCaseStr(user.country)
+            print('Trying user '+str(userId)+' city '+city)
+            if ('london' in city):               
+                print('            '+str(userId)+' city '+city+' country '+country+' with '+str(user.track_count)+' tracks')
+                if (('britain' in country) or ('united kingdom' in country)): 
+                    user_tracks = client.get('/users/'+str(userId)+'/tracks')
+                    for track in user_tracks:
+                        tag_list = lowerCaseStr(track.tag_list)
+                        genre = lowerCaseStr(track.genre)
+                        print('************'+str(track.id)+' genre '+genre+' tag_list '+tag_list)
+                        if (('electronic' in tag_list) or ('electronic' in genre)):
+                            userfound = True
+                            break 
+    print('London-based Electronic music User found: '+str(userId))
+    return user
+
+def getRandomLondonUser():
+    userfound = False
+    while userfound == False: # SoundCloud has about 55 million users at this time - return random number between 0 and 200 million
+        userId = random.randint(0, 200000000)
+        try:
+            user = client.get('/users/' + str(userId))
+        except Exception:
+            pass
+        else:
+            city = lowerCaseStr(user.city)
+            country = lowerCaseStr(user.country)
+            print('Trying user '+str(userId)+' city '+city)
+            if ('london' in city):               
+                print('            '+str(userId)+' city '+city+' country '+country)
+                if (('britain' in country) or ('united kingdom' in country)): 
+                    userfound = True
+                    break 
+    print('London-based User found: '+str(userId))
+    return user
+
+def getRandomEMUser():
+    userfound = False
+    while userfound == False: # SoundCloud has about 55 million users at this time - return random number between 0 and 200 million
+        userId = random.randint(0, 200000000)
+        try:
+            user = client.get('/users/' + str(userId))
+        except Exception:
+            pass
+        else:
+            print('Trying user '+str(userId)+' with '+str(user.track_count)+' tracks')
+            user_tracks = client.get('/users/'+str(userId)+'/tracks')
+            for track in user_tracks:
+                tag_list = lowerCaseStr(track.tag_list)
+                genre = lowerCaseStr(track.genre)
+                print('*******************************************'+str(track.id)+' genre '+genre+' tag_list '+tag_list)
+                if (('electronic' in tag_list) or ('electronic' in genre)):
+                    userfound = True
+                    break 
+    print('Electronic music User found: '+str(userId))
+    return user
+
+
+def lowerCaseStr(inputText):
+    return str.lower(unicode(inputText).encode('utf-8'))
 
 def getXUserIDs(limit=10):
     temp_users = set()
@@ -130,24 +202,27 @@ def getXUserIDs(limit=10):
 
 
 def getAllFollowers(user):
+    global users
     strUserID = str(user.id)
     followers = clientGet('/users/'+strUserID+'/followers')
-    print('Exploring followers of User = '+ strUserID+' with '+str(len(followers))+' followers')
+    print(str(len(users))+' users collected. Exploring followers of User = '+ strUserID+' with '+str(len(followers))+' followers')
     return followers
 
 
 def getAllFollowings(user):
+    global users
     strUserID = str(user.id)
     followings = clientGet('/users/'+strUserID+'/followings')
-    print('Exploring following activities of User = '+ strUserID+' who follows '+str(len(followings))+' users')
+    print(str(len(users))+' users collected. Exploring following activities of User = '+ strUserID+' who follows '+str(len(followings))+' users')
     return followings
 
 
-def clientGet(request, maxAttempts=10):
+def clientGet(request, maxAttempts=100):
+    global requestCount
     success = False;
     count = 0
     result = None
-    timeDelay = 0.5
+    timeDelay = 1 # 1 second time delay between failed attempts
     
     while(not(success) and (count<maxAttempts)):
         try:
@@ -160,6 +235,10 @@ def clientGet(request, maxAttempts=10):
             print('Problem connecting to SoundCloud client, error '+str(e)+'. Trying again... attempt '+str(count)+' of '+str(maxAttempts))
     if (not(success)):
         print('***Unable to retrieve information from SoundCloud for the request: '+request)
+    requestCount = requestCount+count+1
+    if (requestCount>=50):
+        time.sleep((2*timeDelay))
+        requestCount = 0
     return result
             
             
@@ -167,10 +246,10 @@ def clientGet(request, maxAttempts=10):
 def getNewSnowballSample(sampleSize=10):
     ''' Generates a new sample of users (set to the specified sample size, default 10), also generating 
     data on those users' tracks and follow relationships between the users in the set 
-    N.B. This wipes any previously collected samples that are only stored in local memory '''
-    
+    N.B. This wipes any previously collected samples that are only stored in local memory '''    
     global users
-    global user_ids
+    global added_user_ids
+    global user_ids_to_explore
     global tracks
     global track_ids
     global x_follows_y
@@ -179,7 +258,8 @@ def getNewSnowballSample(sampleSize=10):
     global comments
     global comment_ids
     users = set() # initialised to empty
-    user_ids = list()
+    added_user_ids = list()
+    user_ids_to_explore = list()
     x_follows_y = set() # initialised to empty
     tracks = set() # initialised to empty
     track_ids = list()
@@ -189,13 +269,20 @@ def getNewSnowballSample(sampleSize=10):
     comment_ids = list()
     print('Generating snowball sample with a sample size of '+str(sampleSize))
     while (len(users)<sampleSize):
-        user = getRandomUser() # get a new starting point at random        
-        if (not(user.id in user_ids)):
+        print(str(sampleSize)+' sampleSize '+ str(len(users))+' users '+', explore: '+str(user_ids_to_explore)+' added: '+str(added_user_ids))
+        if (len(user_ids_to_explore) ==0):
+            user = getRandomUser() # get a new starting point at random        
+        else:
+            userId = user_ids_to_explore.pop(0)
+            user = clientGet('/users/'+str(userId)) 
+        print('User id currently = '+str(user.id))
+        if (not(user.id in added_user_ids)): # Have we already added this u
             users.add(user)
-            user_ids.append(user.id)
+            added_user_ids.append(user.id)
             print('Seed user = '+str(user.id))
             if (len(users)<sampleSize):  #in case adding the new user to our sample brings us to our desired samplesize
-                collectUsersFromSeedUser(user,sampleSize)
+                collectFollowLinksFromSeedUser(user,sampleSize)
+        
     # populate the contents of the remaining global variables  with data relating to the new sample of users
     getTracks()
     getFavourites()
@@ -203,52 +290,32 @@ def getNewSnowballSample(sampleSize=10):
     #getPlaylists()
     getComments()
 
-def collectUsersFromSeedUser(user,sampleSize):
+def collectFollowLinksFromSeedUser(user,sampleSize):
     ''' Populate the users and x_follows_y sets with data sampled from SoundCloud '''
     global users
-    global user_ids
+    global added_user_ids
     global x_follows_y
+    global user_ids_to_explore
     # look for all followers of user    
     followers = getAllFollowers(user)
-    # add each follower to users set
-    count=0
-    while (len(users)<sampleSize and count<len(followers)): # repeat till sample size reached
-#         print('length = '+str(len(users))+', sampleSize = '+str(sampleSize)+', count = '+str(count)+', len followers = '+str(len(followers)))
-#         print('user '+str(followers[count].id)+' follows '+str(user.id))
-        # Add the follower to the set of SC users (if not already 
-        if (not(followers[count].id in user_ids)):
-            users.add(followers[count]) 
-            user_ids.append(followers[count].id)
+    # process each follower
+    for follower in followers:
         # Add follows relationships between the follower and this seed user
-        x_follows_y.add((followers[count].id, user.id))
-        count = count+1
+        x_follows_y.add((follower.id, user.id))
+        # Add the follower to the list of SC users to be explored (if not already added) 
+        if (not(follower.id in added_user_ids)):
+            user_ids_to_explore.append(follower.id)
       
     # look for all followings of user (i.e. all users that our seed user follows)    
     followings = getAllFollowings(user)
-    # add each follower to users set
-    count=0
-    while (len(users)<sampleSize and count<len(followings)): # repeat till sample size reached
-#         print('length = '+str(len(users))+', sampleSize = '+str(sampleSize)+', count = '+str(count)+', len followings = '+str(len(followings)))
-#         print('user '+str(user.id)+' follows '+str(followings[count].id))
-        # Add the follower to the set of SC users
-        if (not(followings[count].id in user_ids)):       
-            users.add(followings[count]) 
-            user_ids.append(followings[count].id)
-        # Add follows relationships between the seed user and the user they follow
-        x_follows_y.add((user.id, followings[count].id))
-        count = count+1
-        
-    # repeat this step with each follower as the seed user, picking up the results in users
-    count = 0
-    while (len(users)<sampleSize and count<len(followers)):
-        collectUsersFromSeedUser(followers[count],sampleSize)
-        count = count+1
-        
-    # repeat this step with each following (user that the seed user follows) as the seed user, picking up the results in users
-    count = 0
-    while (len(users)<sampleSize and count<len(followings)):
-        collectUsersFromSeedUser(followings[count],sampleSize)
-        count = count+1
+
+    # process each user that the seed user follows (= followings)
+    for following in followings:
+        # Add follows relationships between the follower and this seed user
+        x_follows_y.add((user.id, following.id))
+        # Add the follower to the list of SC users to be explored (if not already added) 
+        if (not(following.id in added_user_ids)):
+            user_ids_to_explore.append(following.id)
 
 
 def getTracks():

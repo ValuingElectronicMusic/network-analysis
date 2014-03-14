@@ -7,8 +7,8 @@
 # 'demonstrate' that shows what some of these things are supposed to
 # do.
 
-import networkx as nx
-import pygraphviz as pgv
+import networkx as nx  # @UnresolvedImport
+import pygraphviz as pgv # @UnresolvedImport
 import process_scdb_data as pscd
 
 

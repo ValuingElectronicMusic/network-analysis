@@ -7,7 +7,6 @@
 # file, there's a function called 'demonstrate' that shows what a few
 # of these do.
 
-import getSoundCloudData as scd
 from sqlite3 import connect
 
 db_path = 'scdb.sqlite'
@@ -29,7 +28,7 @@ class data_holder():
         self.x_follows_y = set(get_table('x_follows_y'))
         self.tracks = set(get_table('tracks'))
         self.groups = set(get_table('groups'))
-        self.playlists = set(get_table('playlists'))
+#         self.playlists = set(get_table('playlists'))
         self.favourites = set(get_table('favourites'))
         self.comments = set(get_table('comments'))
         
@@ -132,11 +131,11 @@ def printEntities(entities):
 
 
 
-def getUserName(id,data_users):
+def getUserName(userId,data_users):
     '''Returns the human-readable name associated with an ID of a user.'''
 
     for u in data_users:
-        if (u[0]==id):
+        if (u[0]==userId):
             return u[2]
 
 
