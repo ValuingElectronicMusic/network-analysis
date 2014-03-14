@@ -86,9 +86,12 @@ def printData(data):
     while (count<10 and len(temp_copy)>0):
         popped = temp_copy.pop()
         try:  # might throw a type error if there are strange characters in the title or genre for a track
-            print(str(count)+'. user id: '+str(popped[8])+', track id: '+str(popped[0])+', title: '+popped[9]+', genre: '+popped[31])
-        except Exception as e:
-            print(str(count)+'. user id: '+str(popped[8])+', track id: '+str(popped[0])+', title and genre - error in displaying, '+ e.message)
+            print(str(count)+'. user id: '+str(popped[1])+', track id: '+str(popped[0])+', title: '+popped[9]+', genre: '+popped[31])
+        except Exception:
+            try:
+                print(str(count)+'. user id: '+str(popped[1])+', track id: '+str(popped[0])+', title: '+str(unicode(popped[9].encode('utf-8')))+', genre: '+str(unicode(popped[31]).encode('utf-8')))
+            except Exception as e2:
+                print(str(count)+'. user id: '+str(popped[1])+', track id: '+str(popped[0])+', title and genre - error in displaying, '+ e2.message)
         count = count+1
 
 
