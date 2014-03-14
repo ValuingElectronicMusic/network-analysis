@@ -205,7 +205,7 @@ def getAllFollowers(user):
     global users
     strUserID = str(user.id)
     followers = clientGet('/users/'+strUserID+'/followers')
-    print(str(len(users))+' users collected. Exploring followers of User = '+ strUserID+' with '+str(len(followers))+' followers')
+    print(str(len(users))+' users collected. Exploring followers of User '+ strUserID+' with '+str(len(followers))+' followers')
     return followers
 
 
@@ -213,7 +213,7 @@ def getAllFollowings(user):
     global users
     strUserID = str(user.id)
     followings = clientGet('/users/'+strUserID+'/followings')
-    print(str(len(users))+' users collected. Exploring following activities of User = '+ strUserID+' who follows '+str(len(followings))+' users')
+    print(str(len(users))+' users collected. Exploring following activities of User '+ strUserID+' who follows '+str(len(followings))+' users')
     return followings
 
 
@@ -236,7 +236,7 @@ def clientGet(request, maxAttempts=100):
     if (not(success)):
         print('***Unable to retrieve information from SoundCloud for the request: '+request)
     requestCount = requestCount+count+1
-    if (requestCount>=50):
+    if (requestCount>=25):   # every 25 times we request data from SoundCloud, pause (to avoid overloading the server)
         time.sleep((2*timeDelay))
         requestCount = 0
     return result
@@ -269,13 +269,13 @@ def getNewSnowballSample(sampleSize=10):
     comment_ids = list()
     print('Generating snowball sample with a sample size of '+str(sampleSize))
     while (len(users)<sampleSize):
-        print(str(sampleSize)+' sampleSize '+ str(len(users))+' users '+', explore: '+str(user_ids_to_explore)+' added: '+str(added_user_ids))
+#         print(str(sampleSize)+' sampleSize '+ str(len(users))+' users '+', explore: '+str(user_ids_to_explore)+' added: '+str(added_user_ids))
         if (len(user_ids_to_explore) ==0):
             user = getRandomUser() # get a new starting point at random        
         else:
             userId = user_ids_to_explore.pop(0)
             user = clientGet('/users/'+str(userId)) 
-        print('User id currently = '+str(user.id))
+#         print('User id currently = '+str(user.id))
         if (not(user.id in added_user_ids)): # Have we already added this u
             users.add(user)
             added_user_ids.append(user.id)
@@ -436,6 +436,7 @@ def exportDataToSQLite():
                 print('Error adding ['+str(follow[0])+' follows '+str(follow[1])+'] to the database: '+e.message+' '+str(e.args))
         # TRACKS
         #issue with label_id? label_id field removed (can use 'label_name' to detect existence of a label)
+        # issue with playback_count? playback_count removed 
         print 'Creating tracks table in DB....'
         cursor.execute('''CREATE TABLE IF NOT EXISTS tracks(
         id INTEGER PRIMARY KEY, user_id INTEGER, title TEXT,   
@@ -443,7 +444,6 @@ def exportDataToSQLite():
         original_format TEXT, description TEXT, sharing TEXT,   
         genre TEXT, duration INTEGER, key_signature TEXT, bpm INTEGER, 
         license TEXT, label_name TEXT, 
-        playback_count INTEGER,  
         favoritings_count INTEGER, 
         streamable TEXT, stream_url TEXT, 
         downloadable TEXT, download_count INTEGER, 
@@ -459,7 +459,6 @@ def exportDataToSQLite():
         original_format, description, sharing,   
         genre, duration, key_signature, bpm, 
         license, label_name,
-        playback_count,  
         favoritings_count, 
         streamable, stream_url, 
         downloadable, download_count, 
@@ -470,13 +469,12 @@ def exportDataToSQLite():
             VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 
                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 
                    ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 
-                   ?, ?)''',
+                   ?)''',
                 (track.id, track.user_id, track.title,   
                 track.permalink_url, track.track_type, track.state, track.created_at, 
                 track.original_format, track.description, track.sharing,   
                 track.genre, track.duration, track.key_signature, track.bpm, 
                 track.license, track.label_name,
-                track.playback_count,  
                 track.favoritings_count, 
                 track.streamable, track.stream_url, 
                 track.downloadable, track.download_count, 
