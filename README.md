@@ -17,6 +17,7 @@ To run the code from a Python 2.7 prompt ($)
 save this data locally in an SQLite database: 
 
 $ import getSoundCloudData as gsc 
+
 $ gsc.main(100)
 
 Data will be stored in a local 'sqdb.sqlite' DB file
@@ -25,6 +26,7 @@ Data will be stored in a local 'sqdb.sqlite' DB file
 generating 3 separate measures of influence and graph diagrams:
 
 $ import scdb_sna as scna
+
 $ scna.demonstrate()
 
 Measures of influence will be output to the screen and graphs
