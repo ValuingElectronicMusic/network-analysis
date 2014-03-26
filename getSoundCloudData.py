@@ -222,7 +222,7 @@ def clientGet(request, maxAttempts=100):
     success = False;
     count = 0
     result = None
-    timeDelay = 1 # 1 second time delay between failed attempts
+    timeDelay = 2 # time delay in seconds between failed attempts
     
     while(not(success) and (count<maxAttempts)):
         try:
@@ -237,7 +237,7 @@ def clientGet(request, maxAttempts=100):
         print('***Unable to retrieve information from SoundCloud for the request: '+request)
     requestCount = requestCount+count+1
     if (requestCount>=25):   # every 25 times we request data from SoundCloud, pause (to avoid overloading the server)
-        time.sleep((2*timeDelay))
+        time.sleep((5*timeDelay))
         requestCount = 0
     return result
             
