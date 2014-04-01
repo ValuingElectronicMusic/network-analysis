@@ -1,20 +1,8 @@
 import sqlite3
+import string
 
-dummy_att_str='id, user_id, title'
 dummy_table_creator='id INTEGER, user_id INTEGER, title TEXT'
 
-
-track_att_str='''id, user_id, title,
-permalink_url, track_type, state, created_at,
-original_format, description, sharing,
-genre, duration, key_signature, bpm,
-license, label_name,
-favoritings_count,
-streamable, stream_url,
-downloadable, download_count,
-commentable,
-purchase_url, artwork_url, video_url, embeddable_by,
-release, release_month, release_day, release_year, tag_list'''
 tracks_table_creator='''id INTEGER, user_id INTEGER, title TEXT,
 permalink_url TEXT,  track_type TEXT, state TEXT, created_at TEXT,
 original_format TEXT, description TEXT, sharing TEXT,
@@ -27,6 +15,10 @@ commentable TEXT,
 purchase_url TEXT, artwork_url TEXT, video_url TEXT, embeddable_by TEXT,
 release TEXT, release_month INTEGER, release_day INTEGER, release_year INTEGER,
 tag_list TEXT'''
+
+
+def att_string(str):
+    return str.translate(None,string.ascii_uppercase)
 
 
 def att_list(att_str):
@@ -43,7 +35,7 @@ def obj_atts_list(obj, att_list):
     return l
 
 
-def add_data(cursor, table, data, att_str, att_list):
+def add_data(cursor, table, data, att_list):
     sql='INSERT INTO {} VALUES({})'.format(table,('?, '*len(att_list))[:-2])
 
     for datum in data:
@@ -77,7 +69,7 @@ def test1():
     curs.execute('DROP TABLE IF EXISTS dummy')
     curs.execute('CREATE TABLE IF NOT '
                  'EXISTS dummy({})'.format(dummy_table_creator))
-    add_data(curs,'dummy',test_data,dummy_att_str,att_list(dummy_att_str))
+    add_data(curs,'dummy',test_data,att_list(att_string(dummy_table_creator)))
     conn.commit()
 
 
@@ -85,10 +77,9 @@ def test2():
     test_data = dummy_data()
     conn = sqlite3.connect('test2.sqlite')
     curs = conn.cursor()
-
     curs.execute('DROP TABLE IF EXISTS tracks')
     curs.execute('CREATE TABLE IF NOT '
                  'EXISTS tracks({})'.format(tracks_table_creator))
-
-    add_data(curs,'tracks',test_data,track_att_str,att_list(track_att_str))
+    add_data(curs,'tracks',test_data,
+             att_list(att_string(tracks_table_creator)))
     conn.commit()
