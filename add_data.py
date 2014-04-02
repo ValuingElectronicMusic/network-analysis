@@ -9,8 +9,9 @@ import string
 
 
 # Strings used for creating tables. Note that I've removed the primary
-# keys because they don't seem to work properly in SQLite and in most
-# cases the result will be a smaller table.
+# keys because they didn't seem to work properly and I didn't have time
+# to fix them. But with the code packaged up in single functions as below
+# I'm hopeful it will only need to be fixed once!
 
 dummy_table_creator='id INTEGER, user_id INTEGER, title TEXT'
 
