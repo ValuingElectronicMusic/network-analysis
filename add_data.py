@@ -8,10 +8,8 @@ import sqlite3
 import re
 
 
-# Strings used for creating tables. Note that I've removed the primary
-# keys because they didn't seem to work properly and I didn't have time
-# to fix them. But with the code packaged up in single functions as below
-# I'm hopeful it will only need to be fixed once!
+# Strings used for creating tables. As before, column names are names of
+# attributes in SoundCloud data objects.
 
 dummy_table_creator='id INTEGER PRIMARY KEY, user_id INTEGER, title TEXT'
 
@@ -83,8 +81,11 @@ def obj_atts_list(obj, att_lst):
     return l
 
 
-# Generalised function for putting data into tables created
-# above, based on what's currently in getSoundCloudData.py
+# Generalised function for putting data into tables created above,
+# based on what's currently in getSoundCloudData.py - note that
+# following function does the same thing without the exception
+# handling (which I hope won't be necessary now) and using the
+# executemany method instead of a loop (should be faster).
 
 def insert_data_loop(cursor, table, data, att_str, att_lst):
     sql='INSERT INTO {} ({}) VALUES({})'.format(table,att_str,('?, '*len(att_lst))[:-2])
