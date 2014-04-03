@@ -12,25 +12,29 @@ from sqlite3 import connect
 db_path = 'scdb.sqlite'
 
 def get_table(tableName):
-    '''Returns contents of one entire table from the sqlite database.'''
-    conn = connect(db_path)
-    with conn:
-        curs = conn.cursor()
-        curs.execute("SELECT * FROM {!s}".format(tableName))
-        return curs.fetchall()
-
+    '''Returns a list of the contents of one entire table from the sqlite database.'''
+    try:
+        conn = connect(db_path)
+        with conn:
+            curs = conn.cursor()
+            curs.execute("SELECT * FROM {!s}".format(tableName))
+            return curs.fetchall()
+    except Exception:
+        # for some reason, table contents couldn't be retrieved
+        # Just return an empty list instead of a list of contents
+        return list()
         
 class data_holder():
     'An object to hold data from each of the four tables in the database.'
 
     def __init__(self):
         self.users = set(get_table('users'))
-        self.x_follows_y = set(get_table('x_follows_y'))
         self.tracks = set(get_table('tracks'))
-        self.groups = set(get_table('groups'))
-#         self.playlists = set(get_table('playlists'))
+        self.x_follows_y = set(get_table('x_follows_y'))
         self.favourites = set(get_table('favourites'))
+        self.groups = set(get_table('groups'))
         self.comments = set(get_table('comments'))
+        self.playlists = set(get_table('playlists'))
         
 
 class entity_holder():
