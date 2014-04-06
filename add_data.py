@@ -8,8 +8,9 @@ import sqlite3
 import re
 
 
-# Strings used for creating tables. As before, column names are names of
-# attributes in SoundCloud data objects.
+# Strings used for creating tables. As before, column names are names
+# of attributes in SoundCloud data objects. For convenience, these are
+# wrapped up in a dictionary.
 
 dummy_table_creator='id INTEGER PRIMARY KEY, user_id INTEGER, title TEXT'
 
@@ -46,30 +47,50 @@ comments_table_creator='''id INTEGER PRIMARY KEY,
 body TEXT, user_id INTEGER, track_id INTEGER, 
 timestamp INTEGER, created_at TEXT'''
 
+tables = {'tracks':tracks_table_creator, 'users':users_table_creator, 
+'x_follows_y':x_follows_y_table_creator, 'groups':groups_table_creator,
+'favourites':favourites_table_creator, 'comments':comments_table_creator}
+
 
 # Generalised function for creating each of the tables we need, using
-# the above strings
+# strings such as the above. The table_name argument must be a key from
+# the tables dictionary above
 
-def create_table(cursor,table,table_creator):
-    cursor.execute('DROP TABLE IF EXISTS {}'.format(table))
+def create_table(cursor,table_name):
+    cursor.execute('DROP TABLE IF EXISTS {}'.format(table_name))
     cursor.execute('CREATE TABLE IF NOT '
-                   'EXISTS {}({})'.format(table,table_creator))
+                   'EXISTS {}({})'.format(table_name,tables[table_name]))
 
 
-# Functions for turning table-creating strings (above) into strings
-# containing only column names
+# Function to create all the tables we need, using every table in the
+# tables dictionary above.
+
+def create_tables(db_filename):
+    connection = sqlite3.connect(db_filename)
+    cursor = connection.cursor()
+    for table_name in tables:
+        create_table(cursor,table_name)
+    connection.commit()
+
+
+# Functions for turning table-creating string (above) into string
+# of column names
 
 def att_string(str):
     return re.sub(r'\n|[A-Z]|\(.*?\)','',str).strip(', ')
 
 
-# Function for turning string containing column names into list
+# Function for turning string of column names into list of column names
+# (also assumed to be object attributes)
 
 def att_list(att_str):
     return [att.strip() for att in att_str.split(',')]
 
 
-# Function for getting data out of SoundCloud object (null if missing)
+# Function for getting data out of SoundCloud object, given list of
+# the object's expected attributes. If an object lacks a particular
+# attribute, returns NULL in place of that particular attribute's
+# value
 
 def obj_atts_list(obj, att_lst):
     l = []
@@ -81,38 +102,25 @@ def obj_atts_list(obj, att_lst):
     return l
 
 
-# Generalised function for putting data into tables created above,
-# based on what's currently in getSoundCloudData.py - note that
-# following function does the same thing without the exception
-# handling (which I hope won't be necessary now) and using the
-# executemany method instead of a loop (should be faster).
+# Generalised function for putting data into tables created above. As
+# with create_table, the table_name argument must be a key from the
+# tables dictionary above. Doesn't do exception handling, as the
+# problem that the previous version ran into is dealt with in
+# obj_atts_list() and if we hit any more it may be better to let the
+# program fail with stack trace etc
 
-def insert_data_loop(cursor, table, data, att_str, att_lst):
-    sql='INSERT INTO {} ({}) VALUES({})'.format(table,att_str,('?, '*len(att_lst))[:-2])
-    for datum in data:
-        try:
-            vals=tuple(obj_atts_list(datum,att_lst))
-            cursor.execute(sql,vals)
-        except Exception as e:
-            print('Error adding {} to '
-                  '{}: {} {}'.format(datum.id,table,e.message,e.args))
-
-
-# (Probably) more efficient version of the above. We hopefully won't
-# need the exception handling once we've got it working properly.
-
-def insert_data(cursor, table, data, att_str, att_lst):
-    sql='INSERT INTO {} ({}) VALUES({})'.format(table,att_str,('?, '*len(att_lst))[:-2])
+def insert_data(cursor,table_name,data):
+    att_str=att_string(tables[table_name])
+    att_lst=att_list(att_str)
+    sql=('INSERT INTO {} ({}) '
+         'VALUES({})'.format(table_name,att_str,('?, '*len(att_lst))[:-2]))
     vals = [tuple(obj_atts_list(d,att_lst)) for d in data]
     cursor.executemany(sql,vals)
 
 
-# Unit tests follow. test1(), test2(), and test3() will create a
-# database with three tables, two of which will contain null values
-# where the objects from which the data was drawn lacked expected
-# attributes. N.B. if this module is imported by e.g.
-# getSoundCloudData.py, these functions provide a model for how the
-# above functions can be called.
+# Unit tests follow. test1() and test2() will create a database with
+# two tables, one of which will contain null values where the objects
+# from which the data was drawn lacked expected attributes.
 
 class placeholder():
     pass
@@ -137,24 +145,17 @@ def dummy_data2():
     return [ph1,ph2]
 
 
-def test(db_filename,test_data,table_name,table_creator):
+def test(db_filename,test_data,table_name):
     connection = sqlite3.connect(db_filename)
     cursor = connection.cursor()
-    create_table(cursor,table_name,table_creator)
-    att_str = att_string(table_creator)
-    att_lst = att_list(att_str)
-    insert_data(cursor,table_name,test_data,
-                att_str,att_lst)
+    create_table(cursor,table_name)
+    insert_data(cursor,table_name,test_data)
     connection.commit()
 
 
 def test1():
-    test('test.sqlite',dummy_data1(),'dummy',dummy_table_creator)
+    test('test.sqlite',dummy_data1(),'tracks')
 
 
 def test2():
-    test('test.sqlite',dummy_data1(),'tracks',tracks_table_creator)
-
-
-def test3():
-    test('test.sqlite',dummy_data2(),'x_follows_y',x_follows_y_table_creator)
+    test('test.sqlite',dummy_data2(),'x_follows_y')
