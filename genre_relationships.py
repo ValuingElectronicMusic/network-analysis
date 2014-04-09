@@ -33,6 +33,11 @@ Created on Apr 9, 2014
 # SoundCloud. Calculating betweenness centrality for these clusters
 # will help to identify key terms and individuals.
 
+# Note that nltk needs to be installed, with corpus data. This is
+# purely for the list of stopwords, which could have been obtained by
+# other means! But we'll be needing nltk's core functionality soon
+# enough.
+
 
 import sqlite3
 import re
