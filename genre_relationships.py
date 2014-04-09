@@ -1,3 +1,39 @@
+'''
+Created on Apr 9, 2014
+
+@author: daniel-allington
+'''
+
+# (1) Creates a new database containing all genres and tags, with
+# absolute frequencies, in order of frequency, leaving out any below a
+# given threshold of frequency. (2) For a list of users, identifies
+# all the genres and tags associated with each user's tracks, counting
+# how frequently each occurs for that user, and also produces a list
+# of each user's n most frequently used genres and tags. Where it has
+# to choose between genres/tags that a user has used with equal
+# frequency, it chooses the one that is more frequent in the dataset
+# as a whole (where this is tied, it chooses the shorter string; where
+# that is tied, the alphabetically prior string). At the moment, this
+# is printed out. Call the test() function to see.
+
+# Remaining to be done: the current printed output should be stored in
+# a table of the new sqlite database. The function for creating that
+# output should no longer call the function that creates the frequency
+# tables of genres and tags in the same database; instead, it should
+# throw an error if those tables don't yet exist, prompting the user
+# to call the function that creates them. These two functions should
+# be called something more informative than 'main'.
+
+# Purpose: it will then be possible to create an undirected network of
+# users with edges based not on followings etc but on use of similar
+# genres/tags - and a network of genres/tags based on which ones are
+# associated with tracks uploaded by the same individuals. Hopefully
+# clusters in the two networks will give us a sense of the broad
+# stylistic groupings behind the huge range of genre terms used on
+# SoundCloud. Calculating betweenness centrality for these clusters
+# will help to identify key terms and individuals.
+
+
 import sqlite3
 import re
 import collections
