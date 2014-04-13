@@ -12,8 +12,6 @@ import re
 # of attributes in SoundCloud data objects. For convenience, these are
 # wrapped up in a dictionary.
 
-dummy_table_creator='id INTEGER PRIMARY KEY, user_id INTEGER, title TEXT'
-
 tracks_table_creator='''id INTEGER PRIMARY KEY, user_id INTEGER, title TEXT,
 permalink_url TEXT,  track_type TEXT, state TEXT, created_at TEXT,
 original_format TEXT, description TEXT, sharing TEXT,
@@ -47,9 +45,27 @@ comments_table_creator='''id INTEGER PRIMARY KEY,
 body TEXT, user_id INTEGER, track_id INTEGER, 
 timestamp INTEGER, created_at TEXT'''
 
+# The next two table creators are for the _deriv database.
+
+gentag_table_creator='''string TEXT PRIMARY KEY, frequency INTEGER,
+rank INTEGER'''
+
+user_gentag_table_creator='''user INTEGER PRIMARY KEY, used TEXT,
+most_used TEXT, most_used_three TEXT'''
+
+# Here's the dictionary containing all the table creators.
+
 tables = {'tracks':tracks_table_creator, 'users':users_table_creator, 
 'x_follows_y':x_follows_y_table_creator, 'groups':groups_table_creator,
-'favourites':favourites_table_creator, 'comments':comments_table_creator}
+'favourites':favourites_table_creator, 'comments':comments_table_creator,
+'genres':gentag_table_creator, 'tags':gentag_table_creator,
+'user_genres':user_gentag_table_creator, 'user_tags':user_gentag_table_creator}
+
+# Here's are sets containing table names; distinguish deriv database 
+# from original.
+
+table_names = {'tracks','users','x_follows_y','groups','favourites','comments'}
+deriv_names = {'genres','tags','user_genres','user_tags'}
 
 
 # Generalised function for creating each of the tables we need, using
@@ -62,13 +78,14 @@ def create_table(cursor,table_name):
                    'EXISTS {}({})'.format(table_name,tables[table_name]))
 
 
-# Function to create all the tables we need, using every table in the
-# tables dictionary above.
+# Function to create all the tables we need for the original database
+# (not the deriv database), using every table in the tables dictionary
+# above.
 
 def create_tables(db_filename):
     connection = sqlite3.connect(db_filename)
     cursor = connection.cursor()
-    for table_name in tables:
+    for table_name in table_names:
         create_table(cursor,table_name)
     connection.commit()
 
@@ -116,6 +133,15 @@ def insert_data(cursor,table_name,data):
          'VALUES({})'.format(table_name,att_str,('?, '*len(att_lst))[:-2]))
     vals = [tuple(obj_atts_list(d,att_lst)) for d in data]
     cursor.executemany(sql,vals)
+
+
+def insert_deriv_data(cursor,table_name,data):
+    att_str=att_string(tables[table_name])
+    att_lst=att_list(att_str)
+    sql=('INSERT INTO {} ({}) '
+         'VALUES({})'.format(table_name,att_str,('?, '*len(att_lst))[:-2]))
+    for d in data:
+        cursor.execute(sql,d)
 
 
 # Unit tests follow. test1() and test2() will create a database with
