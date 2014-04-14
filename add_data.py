@@ -45,7 +45,7 @@ comments_table_creator='''id INTEGER PRIMARY KEY,
 body TEXT, user_id INTEGER, track_id INTEGER, 
 timestamp INTEGER, created_at TEXT'''
 
-# The next two table creators are for the _deriv database.
+# The following table creators are for the _deriv database.
 
 gentag_table_creator='''string TEXT PRIMARY KEY, frequency INTEGER,
 rank INTEGER'''
@@ -53,19 +53,30 @@ rank INTEGER'''
 user_gentag_table_creator='''user INTEGER PRIMARY KEY, used TEXT,
 most_used TEXT, most_used_three TEXT'''
 
+x_faves_work_of_y_table_creator='''favourer INTEGER, favoured INTEGER, 
+frequency INTEGER, PRIMARY KEY (favourer, favoured)'''
+
+comments_corp_table_creator='''id INTEGER PRIMARY KEY, commenter INTEGER,
+track_creator INTEGER, commenter_follows_creator INTEGER, 
+creator_follows_commenter INTEGER, commenter_faves_track INTEGER, 
+datetime TEXT, language TEXT, filtered_text TEXT'''
+
 # Here's the dictionary containing all the table creators.
 
 tables = {'tracks':tracks_table_creator, 'users':users_table_creator, 
 'x_follows_y':x_follows_y_table_creator, 'groups':groups_table_creator,
 'favourites':favourites_table_creator, 'comments':comments_table_creator,
 'genres':gentag_table_creator, 'tags':gentag_table_creator,
-'user_genres':user_gentag_table_creator, 'user_tags':user_gentag_table_creator}
+'user_genres':user_gentag_table_creator, 'user_tags':user_gentag_table_creator,
+'x_faves_work_of_y':x_faves_work_of_y_table_creator,
+'comments_corp':comments_corp_table_creator}
 
-# Here's are sets containing table names; distinguish deriv database 
+# Here are sets containing table names; distinguish deriv database 
 # from original.
 
 table_names = {'tracks','users','x_follows_y','groups','favourites','comments'}
-deriv_names = {'genres','tags','user_genres','user_tags'}
+deriv_names = {'genres','tags','user_genres','user_tags','x_faves_work_of_y',
+'comments_corp'}
 
 
 # Generalised function for creating each of the tables we need, using

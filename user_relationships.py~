@@ -1,0 +1,10 @@
+'''
+Created on Apr 13, 2014
+
+@author: daniel-allington
+'''
+
+# Adds to the _deriv databse created in genre_relationships.py with a table
+# showing where one user has favourited the work of another (and how many
+# times). Will eventually add code for a table showing where one user has
+# commented on the work of another (and how many times).
