@@ -22,17 +22,17 @@ Created on Apr 13, 2014
 # comments... except that none of the comments here were from people
 # who'd favourited the tracks in question, but most of the comments
 # here are positive); the complete genre and tag_list fields from the
-# track (deliberately not processed in any way - so, unlike with the
-# user_genre and user_tags tables, we should use CONTAINS rather than
-# = to search this); the language of the comment (identified
-# procedurally, using guess-language - which mistakes most of the
-# English comments for other languages but fortunately doesn't seem to
-# do the reverse much); the date and time when the comment was made
-# (seems a shame to lose it). Then the text itself, filtered so that
-# @usernames are replaced by @@ and web addresses are replaced by %%
-# (useful preprocessing for corpus analysis; note that as the comment
-# IDs are preserved, we can easily get the unfiltered text from the
-# original table).
+# track (deliberately not processed in any way except for changing to
+# lower case - so, unlike with the user_genre and user_tags tables, we
+# should use CONTAINS rather than = to search this); the language of
+# the comment (identified procedurally, using guess-language - which
+# mistakes most of the English comments for other languages but
+# fortunately doesn't seem to do the reverse much); the date and time
+# when the comment was made (seems a shame to lose it). Then the text
+# itself, filtered so that @usernames are replaced by @@ and web
+# addresses are replaced by %% (useful preprocessing for corpus
+# analysis; note that as the comment IDs are preserved, we can easily
+# get the unfiltered text from the original table).
 
 # Technically necessary to load the entire list of comment IDs into
 # memory (can't just iterate through the comments table in the
@@ -74,14 +74,15 @@ def attribute_track(curssourc,track):
     if u:
         return u[0]
     else:
-        return u
+        return None
 
 
 def genretags(curssourc,track):
     curssourc.execute('SELECT genre, tag_list FROM tracks WHERE id=?',(track,))
     gt=curssourc.fetchone()
     if gt:
-        return gt
+        return ((gt[0].lower() if gt[0] else None),
+                (gt[1].lower() if gt[1] else None))
     else:
         return None,None
 
@@ -89,7 +90,7 @@ def genretags(curssourc,track):
 def filtered(text):
     text=username.sub('@@',text)
     text=url.sub('%%',text)
-    return text
+    return text.lower()
 
 
 def language(text):
