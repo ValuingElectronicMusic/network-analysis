@@ -4,25 +4,21 @@ Created on Apr 9, 2014
 @author: daniel-allington
 '''
 
-# (1) Creates a new database containing all genres and tags, with
+# Creates a new database containing: (a) table of genre strings, with
 # absolute frequencies, in order of frequency, leaving out any below a
-# given threshold of frequency. (2) For a list of users, identifies
-# all the genres and tags associated with each user's tracks, counting
-# how frequently each occurs for that user, and also produces a list
-# of each user's n most frequently used genres and tags. Where it has
-# to choose between genres/tags that a user has used with equal
-# frequency, it chooses the one that is more frequent in the dataset
-# as a whole (where this is tied, it chooses the shorter string; where
-# that is tied, the alphabetically prior string). At the moment, this
-# is printed out. Call the test() function to see.
+# given threshold of frequency; (b) as a but for tags; (c) table of
+# users with tracks, giving (i) all genre strings associated with each
+# user's tracks, with frequency, in order of frequency, (ii) the
+# user's most common genre string, (iii) the user's most common three
+# genre strings (in alphabetical ordre; (d) as c but for tags. This
+# database is stored in an sqlite file with '_deriv' appended to the
+# name of the database it's derived from.
 
-# Remaining to be done: the current printed output should be stored in
-# a table of the new sqlite database. The function for creating that
-# output should no longer call the function that creates the frequency
-# tables of genres and tags in the same database; instead, it should
-# throw an error if those tables don't yet exist, prompting the user
-# to call the function that creates them. These two functions should
-# be called something more informative than 'main'.
+# Where the program has to choose between genres/tags that a user has
+# used with equal frequency, it chooses the one that is more frequent
+# in the dataset as a whole (where this is tied, it chooses the
+# shorter string; where that is tied, the alphabetically prior
+# string).
 
 # Purpose: it will then be possible to create an undirected network of
 # users with edges based not on followings etc but on use of similar
@@ -33,36 +29,41 @@ Created on Apr 9, 2014
 # SoundCloud. Calculating betweenness centrality for these clusters
 # will help to identify key terms and individuals.
 
-# Note that nltk needs to be installed, with corpus data. This is
-# purely for the list of stopwords, which could have been obtained by
-# other means! But we'll be needing nltk's core functionality soon
-# enough.
-
 
 import sqlite3
 import re
 import collections
-from nltk.corpus import stopwords
+import add_data
+import cPickle
+import deriv_db
 
 
 genre_sep = re.compile(r'"|,|/|\\')
 tag_captu = re.compile(r'"(.+?)"|\b(\S+?)\b')
-stop = stopwords.words('english')
 
 genre_threshold = 2 
 tag_threshold = 2
 
+f = open('stopwords') # extracted from NLTK
+stop = cPickle.load(f)
+f.close()
 
 def flatten(l):
     return [i for subl in l for i in subl]
 
 
-def user_data(curs,user):
-    curs.execute('SELECT genre,tag_list FROM tracks WHERE user_id=?',(user,))
-    return zip(*curs.fetchall())
-    
+def user_data(curs,user,col):
+    # Apologies for combining a string operation with the proper
+    # SQLite insertion method (with ?) - for some reason, when I try
+    # to insert a table name with ?, it thinks this is a value that I
+    # want it to return. The database is safe so this isn't the
+    # security issue that it might have been - but I'll change it once
+    # I figure out how.
+    return curs.execute('SELECT {} FROM tracks WHERE user_id=?'.format(col),(user,))
+
 
 def all_genres(curs):
+    curs.execute('SELECT * FROM sqlite_master')
     return curs.execute('SELECT genre FROM tracks')
 
 
@@ -74,31 +75,36 @@ def clean(l):
     return [i for i in l if len(i)>1 and i not in stop]
 
 
-def genres_from_string(s):
-    return clean([g.strip() for g in genre_sep.split(s.lower().strip('"\' '))])
+def strings_from_string(s,col):
+    if col=='genre':
+        return clean([g.strip() 
+                      for g in genre_sep.split(s.lower().strip('"\' '))])
+    elif col=='tag_list':
+        return clean([group[0] if group[0] else group[1] 
+                      for group in tag_captu.findall(s.lower())])
+    else: print 'Unrecognised source column name: {}'.format(col)
 
 
-def tags_from_string(s):
-    return clean([group[0] if group[0] else group[1] 
-                  for group in tag_captu.findall(s.lower())])
+def strings_from_iterator(ite,col):
+    strings=[]
+    for i in ite:
+        if i[0]: strings.extend(strings_from_string(i[0],col))
+    return strings
 
 
-def user_strings(l,func):
-    return flatten([func(t) for t in l])
-
-
-def n_from_list(l,n,cursderiv,table):
+def n_from_list(l,n,cursderiv,ranktable):
     sorting_list=[]
     for item in l:
-        cursderiv.execute('SELECT rank FROM genres WHERE string=?',(item[0],))
+        cursderiv.execute('SELECT rank FROM {} WHERE string=?'.format(ranktable),
+                          (item[0],))
         c = cursderiv.fetchone()
         if c: rank=c[0]
-        else: rank=1000000
+        else: rank=10000000
         sorting_list.append((rank,len(item[0]),item[0]))
     return [(i[2],) for i in sorted(sorting_list)[:n]]
 
 
-def n_most_common(counted,n,cursderiv,table):
+def n_most_common(counted,n,cursderiv,ranktable):
     c = (x for x in counted)
     l = []
     unused = None
@@ -124,14 +130,9 @@ def n_most_common(counted,n,cursderiv,table):
         else:
             break
     if current:
-        l.extend(n_from_list(current,n-len(l),cursderiv,table))
+        l.extend(n_from_list(current,n-len(l),cursderiv,ranktable))
     string_list=[i[0] for i in l]
-    return string_list+(['']*(n-len(string_list)))
-
-
-def count_up(strings,n,curs,table):
-    counted=collections.Counter(strings).most_common()
-    return counted, n_most_common(counted,n,curs,table)
+    return sorted(string_list+(['']*(n-len(string_list))))
 
 
 def add_ranks(l,threshold):
@@ -140,60 +141,81 @@ def add_ranks(l,threshold):
     return [(c[0],c[1],nums.index(c[1])+1) for c in counted if c[1]>=threshold]
 
 
-def create_genres_table(curssourc,cursderiv):
-    cursderiv.execute('CREATE TABLE genres(string PRIMARY KEY, '
-                      'frequency INTEGER, rank INTEGER)')
-    gen_entries = all_genres(curssourc)
-    gen_l = []
-    for g in gen_entries:
-        if g[0]: 
-            gen_l.extend(genres_from_string(g[0]))
-    sql=('INSERT INTO genres (string,frequency,rank) VALUES(?,?,?)')
-    cursderiv.executemany(sql,add_ranks(gen_l,genre_threshold))
+def create_gt_table(curssourc,cursderiv,colsourc,tabderiv):
+    add_data.create_table(cursderiv,tabderiv)
+    entries = (all_genres(curssourc) if tabderiv=='genres' 
+               else all_tags(curssourc))
+    l = []
+    for e in entries:
+        if e[0]: 
+            l.extend(strings_from_string(e[0],colsourc))
+    sql=('INSERT INTO {} (string,frequency,rank) '
+         'VALUES(?,?,?)'.format(tabderiv))
+    thresh = (genre_threshold if tabderiv == 'genres' else tag_threshold)
+    cursderiv.executemany(sql,add_ranks(l,thresh))
 
 
-def create_tags_table(curssourc,cursderiv):
-    cursderiv.execute('CREATE TABLE tags(string PRIMARY KEY, '
-                      'frequency INTEGER, rank INTEGER)')
-    tag_entries = all_tags(curssourc)
-    tag_l = []
-    for t in tag_entries:
-        if t[0]:
-            tag_l.extend(tags_from_string(t[0]))
-    sql=('INSERT INTO tags (string,frequency,rank) VALUES(?,?,?)')
-    cursderiv.executemany(sql,add_ranks(tag_l,tag_threshold))
-
-
-def deriv_tables(curssourc,cursderiv):
+def check_tables(cursderiv):
+    genre_table, tag_table = False,False
     cursderiv.execute("SELECT name FROM sqlite_master WHERE type='table' "
                       "AND name='genres'")
-    if len (cursderiv.fetchall()) < 1: 
-        create_genres_table(curssourc,cursderiv) 
+    if len (cursderiv.fetchall()) > 0: 
+        genre_table = True
     cursderiv.execute("SELECT name FROM sqlite_master WHERE type='table' "
                       "AND name='tags'")
-    if len (cursderiv.fetchall()) < 1: 
-        create_tags_table(curssourc,cursderiv)
+    if len (cursderiv.fetchall()) > 0: 
+        tag_table = True
+    return genre_table,tag_table
 
 
-def main(db_source,users):
-    if db_source[-7:]!='.sqlite': db_source=db_source+'.sqlite'
-    db_deriv = db_source[:-7]+'_deriv'+db_source[-7:]
-    connsourc = sqlite3.connect(db_source)
+def gt_tables(db_source):
+    connsourc,connderiv = connect_databases(db_source)
     curssourc = connsourc.cursor()
-    connderiv = sqlite3.connect(db_deriv)
     cursderiv = connderiv.cursor()
-    deriv_tables(curssourc,cursderiv)
-    connderiv.commit()
+    for colsourc,table in [('genre','genres'),('tag_list','tags')]:
+        create_gt_table(curssourc,cursderiv,colsourc,table)
+        connderiv.commit()
 
+
+def deriv_user_data(curssourc,cursderiv,users,colsourc,ranktable):
     for user in users:
-        genres,tags = user_data(curssourc,user)
-        cgens = count_up(user_strings(genres,genres_from_string),
-                         3,cursderiv,'genres')
-        ctags = count_up(user_strings(tags,tags_from_string),
-                         3,cursderiv,'tags')
-        print ('User: {}'
-               '\nMost common genres: {}'
-               '\nMost common tags: {}'.format(user,cgens[1],ctags[1]))
+        to_count=strings_from_iterator(user_data(curssourc,user[0],colsourc),
+                                       colsourc)
+        counted=collections.Counter(to_count).most_common()
+        mcstring = unicode(n_most_common(counted,
+                                         1,cursderiv,ranktable)[0])
+        cstrings = ' | '.join(n_most_common(counted,
+                                            3,cursderiv,ranktable))
+        str_counted= ' | '.join([u'{}, {}'.format(c[0],c[1]) 
+                                 for c in counted])
+        yield user[0],str_counted,mcstring,cstrings
+
+
+def user_gt_tables(db_source):
+    connsourc,connderiv = db_deriv.connect_databases(db_source)
+    curssourc = connsourc.cursor()
+    cursderiv = connderiv.cursor()
+
+    ct = check_tables(cursderiv)
+    if not ct[0] or not ct[1]:
+        if not ct[0]: print 'Could not find genres table.'
+        if not ct[1]: print 'Could not find tags table.'
+        print ('Before calling this function, call gt_tables with '
+               'path of source database to create necessary tables.')
+        return
+
+    curssourc.execute('SELECT user_id FROM tracks')
+    users=set(curssourc.fetchall())
+
+    for colsourc,tabderiv,ranktable in [('genre','user_genres','genres'),
+                                        ('tag_list','user_tags','tags')]:
+  
+        add_data.create_table(cursderiv,tabderiv)
+        add_data.insert_deriv_data(cursderiv,tabderiv,
+                                   deriv_user_data(curssourc,cursderiv,
+                                                   users,colsourc,ranktable))
+        connderiv.commit()
+
 
 def test():
-    main('scdb.sqlite',[118312,132240,942279])
+    return user_gt_tables('scdb')

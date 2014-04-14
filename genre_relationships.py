@@ -169,7 +169,7 @@ def check_tables(cursderiv):
 
 
 def gt_tables(db_source):
-    connsourc,connderiv = connect_databases(db_source)
+    connsourc,connderiv = deriv_db.connect_databases(db_source)
     curssourc = connsourc.cursor()
     cursderiv = connderiv.cursor()
     for colsourc,table in [('genre','genres'),('tag_list','tags')]:
@@ -192,7 +192,7 @@ def deriv_user_data(curssourc,cursderiv,users,colsourc,ranktable):
 
 
 def user_gt_tables(db_source):
-    connsourc,connderiv = db_deriv.connect_databases(db_source)
+    connsourc,connderiv = deriv_db.connect_databases(db_source)
     curssourc = connsourc.cursor()
     cursderiv = connderiv.cursor()
 
@@ -216,6 +216,3 @@ def user_gt_tables(db_source):
                                                    users,colsourc,ranktable))
         connderiv.commit()
 
-
-def test():
-    return user_gt_tables('scdb')
