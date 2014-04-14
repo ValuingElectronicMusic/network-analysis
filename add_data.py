@@ -117,8 +117,9 @@ def att_list(att_str):
 
 # Function for getting data out of SoundCloud object, given list of
 # the object's expected attributes. If an object lacks a particular
-# attribute, returns NULL in place of that particular attribute's
-# value
+# attribute, returns None in place of that particular attribute's
+# value (which is then automatically translated into NULL when passed
+# to the SQLite database).
 
 def obj_atts_list(obj, att_lst):
     l = []
@@ -126,14 +127,17 @@ def obj_atts_list(obj, att_lst):
         try:
             l.append(getattr(obj,att))
         except AttributeError:
-            l.append('NULL')
+            l.append(None)
     return l
 
 
 # Generalised function for putting data into tables created above. As
 # with create_table, the table_name argument must be a key from the
 # tables dictionary above. Uses exception handling to stop attempts
-# to insert a row with a primary key that already exists.
+# to insert a row with a primary key that already exists (should be
+# much faster than checking before inserting). Will fail if there are
+# any other errors - but that's the Pythonic way to do it as we will
+# want a stack trace etc.
 
 def insert_data(cursor,table_name,data):
     att_str=att_string(tables[table_name])
@@ -146,6 +150,9 @@ def insert_data(cursor,table_name,data):
             cursor.execute(sql,vals)
         except sqlite3.IntegrityError:
             pass
+
+
+# This one is for inserting into the _deriv database.
 
 def insert_deriv_data(cursor,table_name,data):
     att_str=att_string(tables[table_name])
