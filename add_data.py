@@ -132,19 +132,20 @@ def obj_atts_list(obj, att_lst):
 
 # Generalised function for putting data into tables created above. As
 # with create_table, the table_name argument must be a key from the
-# tables dictionary above. Doesn't do exception handling, as the
-# problem that the previous version ran into is dealt with in
-# obj_atts_list() and if we hit any more it may be better to let the
-# program fail with stack trace etc
+# tables dictionary above. Uses exception handling to stop attempts
+# to insert a row with a primary key that already exists.
 
 def insert_data(cursor,table_name,data):
     att_str=att_string(tables[table_name])
     att_lst=att_list(att_str)
     sql=('INSERT INTO {} ({}) '
          'VALUES({})'.format(table_name,att_str,('?, '*len(att_lst))[:-2]))
-    vals = [tuple(obj_atts_list(d,att_lst)) for d in data]
-    cursor.executemany(sql,vals)
-
+    vals_list = [tuple(obj_atts_list(d,att_lst)) for d in data]
+    for vals in vals_list:
+        try:
+            cursor.execute(sql,vals)
+        except sqlite3.IntegrityError:
+            pass
 
 def insert_deriv_data(cursor,table_name,data):
     att_str=att_string(tables[table_name])
