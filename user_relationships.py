@@ -11,8 +11,8 @@ import deriv_db
 import add_data
 
 
-def corpus_table(cursderiv):
-    add_data.create_table(cursderiv,'comments_corp')
+def faves_table(cursderiv):
+    add_data.create_table(cursderiv,'x_faves_work_of_y')
 
 
 def get_faves(curssourc):
