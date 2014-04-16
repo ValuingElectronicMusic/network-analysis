@@ -16,6 +16,11 @@ import time
 
 requestCount = 0
 
+try:
+    import cPickle as pickle
+except:
+    import pickle
+
 # The following global variables represent information about the SoundCloud users in our
 # sample set. We only collect data on users in our sample set, discarding other data
 # For each set of SoundCloud *objects* (excluding sets of tuples), 
@@ -276,13 +281,14 @@ def getNewSnowballSample(sample_size=500,desired_seed_users=set()):
     DONE get desired_samplesize and ids of desired seed users
     DONE read in data collected so far
     read in cpickle of sets of ids collected/to-collect
-    add ids of desired seed users to user_ids_to_collect
-    repeat until size(user_ids_collected) == desired_samplesize:    print 'x total users collected so far. Collecting the next batch of 100 users'
-        call batchDataCollection function
-        print 'sleeping for 10 seconds' 
-        # this is the time window when we can interrupt batchDataCollection 
-        # NB I've chosen 10 seconds sleep, slightly arbitrarily, based on experiments so far
-    #done'''
+    DONE add ids of desired seed users to user_ids_to_collect
+    DONE repeat until size(user_ids_collected) == desired_samplesize:    
+        DONE print 'x/n total users collected so far. Collecting the next batch of 100 users'
+        DONE call batchDataCollection function
+        DONE print 'Pausing for 10 seconds' 
+        NB this is the time window when we can interrupt batchDataCollection 
+        NB I've chosen 10 seconds sleep, slightly arbitrarily, based on experiments so far
+    done'''
     global users
     global tracks
     global x_follows_y
@@ -306,18 +312,35 @@ def getNewSnowballSample(sample_size=500,desired_seed_users=set()):
     groups = data.groups
     playlists = data.playlists
     
-    # TODO read in cpickle of sets of ids collected/to-collect
+    # read in cpickle of sets of ids collected/to-collect
+    # set default of empty sets for each set of ids, to be replaced by the cpickle contents
     user_ids_to_collect = set()
     user_ids_collected = set()
     track_ids_collected = set()
     comment_ids_collected = set()
+    try:
+        current_ids = pickle.load(open("current_ids.p", "rb"))
+        user_ids_to_collect = current_ids['u_ids_to_collect']
+        user_ids_collected = current_ids['u_ids_collected']
+        track_ids_collected = current_ids['t_ids_collected']
+        comment_ids_collected = current_ids['c_ids_collected']
+    except: 
+        pass # use default values of empty sets for any id sets not initialised
+
     # add ids of desired seed users to user_ids_to_collect
     user_ids_to_collect = user_ids_to_collect.union(desired_seed_users)
     print('Generating snowball sample with a sample size of '+str(sample_size))
     #repeat until size(user_ids_collected) == desired_samplesize:
-
-#     while (len(users)<sample_size):
-# #         print(str(sample_size)+' sample_size '+ str(len(users))+' users '+', explore: '+str(user_ids_to_collect)+' added: '+str(user_ids_collected))
+    
+    while (len(user_ids_collected)<sample_size):
+        print(str(len(user_ids_collected))+'/'+str(sample_size)+' total users collected so far. Collecting the next batch of 100 users')
+        batchDataCollection()
+	print 'Pausing for 10 seconds - if you want to interrupt data collection, do it now.'
+	# this is the time window when we can interrupt batchDataCollection 
+	# NB I've chosen 10 seconds sleep, slightly arbitrarily, based on experiments so far
+        time.sleep(10) # wait 10 seconds to give the server a break
+        print 'Finished pausing, time for more data collection - now please wait till the next pause if you want to interrupt data collection'
+############################ OLD ######################
 #         if (len(user_ids_to_collect) ==0):
 #             user = getRandomUser() # get a new starting point at random        
 #         else:
@@ -386,6 +409,133 @@ def getNewSnowballSample(sample_size=500,desired_seed_users=set()):
 #     #getPlaylists()
 #     getComments()
 
+
+def batchDataCollection(batch_size=100):
+    ''' Batch function to collect x number of users (default 100) and all assorted data
+	read in cpickle and DB information from previous runs into runtime memory
+	num_users_collected = 0
+	repeat until 100 users collected:
+		if the user_ids_to_collect set is nonempty:      
+			pop a user_id from the set and set that user_id as seed.
+		else: set random user as seed
+		
+		# below, 'collect'='get data from soundcloud API, store in relevant internal data structure'
+		# if an item has already been collected, collect it again and check if 
+		# the collected info needs updating 
+		# (we want to have the most up to date information)
+	        call collectFollowsAndFollowersData(user)
+	        call collectFavouritedTracksData(user)
+	        call collectGroupsData(user)
+	        call collectProducedTracksData(user)
+	        call collectCommentsData(user)
+	        call collectPlaylistData(user)
+		# now finished with this user, move onto the next user until 100 users collected
+		num_users_collected++
+	# (go back to the start of the repeat loop again)
+	
+	# Now we have collected 100 users
+	call backupData 
+	# done
+	'''
+    global users
+    global tracks
+    global x_follows_y
+    global favourites
+    global comments
+    global groups
+    global playlists
+    global user_ids_collected
+    global user_ids_to_collect
+    global track_ids_collected
+    global comment_ids_collected
+    print 'TODO BatchCollection'
+
+def collectFollowsAndFollowersData(user):
+    '''collect ids of all users that our seed user follows: 
+ 		construct follows relationship tuple for each follow (seed_id, followed_user_id)
+		add ids to user_ids_to_collect
+       then collect ids of all users that follow our seed user:
+		construct follows relationship tuple for each follow (follower_user_id, seed_id)
+		add ids to user_ids_to_collect
+    '''
+    print 'TODO CollectFollowsAndFollowersData'
+
+def collectFavouritedTracksData(user):
+    ''' collect all the user's favourited tracks
+		construct favourites tuple for each favouriting: (user_id, track_id, track_producer_id)
+		collect track information and add track_id to track_ids_collected
+		add all track_producer_ids to user_ids_to_collect
+    '''
+    print 'TODO CollectFavouritedTracksData'
+	
+def collectGroupsData(user): 
+    ''' collect all the user's groups
+		construct tuple (seed_id, group_id, group_name)
+    '''
+######################## NB a group is created by a user. 
+######################## Is joining a group a measure of influence of the *creator* of the group?
+######################## If so, add group_creator_id to tuple and to user_ids_to_collect
+    print 'TODO CollectGroupsData'
+
+def collectProducedTracksData(user):
+    ''' collect all tracks produced by seed user
+	 for each track:
+		collect all comments made on seed user's tracks
+		for each comment collected on seed user's track:
+			add comment id to comment_ids_collected
+			collect user id and add to user_ids_to_be_collected
+    '''
+    print 'TODO CollectProducedTracksData'
+
+def collectCommentsData(user):
+    ''' collect all comments made by seed user
+    for each comment:
+		add comment id to comment_ids_collected
+		collect track information and add track id to track_ids_collected
+		add track_creator_id to user_ids_to_collect
+    '''
+    print 'TODO CollectCommentsData'
+
+def collectPlaylistData(user):
+    '''	collect all playlists by the user
+		construct playlist tuple for each playlisted track: (user_id, playlist_id,track_id, track_producer_id)
+		collect track information and add track_id to track_ids_collected
+		add all track_producer_ids to user_ids_to_collect 
+    ''' 
+    print 'TODO CollectPlaylistsData'
+
+
+def backupData():
+    '''
+        { backup: (grandfather - father - son: grandfather is the oldest backup,
+        # father is the most recent backup, son is the current version)
+        check time:
+                if current_time>=24 hours later than last_backup_timestamp:
+                last_backup_timestamp = current_time
+                copy grandfatherDB+pickle to backup files called '<current_time>-BK-scdb.sqlite' and <current-time>-BK-whate$
+                else: pass # (do nothing, leave last_backup_timestamp with the value it currently has)
+        # do this every time, regardless of current_time
+        copy fatherDB+pickle to grandfatherDB+pickle
+        copy sonDB+pickle to fatherDB+pickle
+        save current information to sonDB+pickle # save updated DB tables and cpickle
+    
+    '''
+    global user_ids_to_collect
+    global user_ids_collected
+    global track_ids_collected
+    global comment_ids_collected
+    current_ids = dict()
+    current_ids['u_ids_to_collect'] = user_ids_to_collect
+    current_ids['u_ids_collected'] = user_ids_collected
+    current_ids['t_ids_collected'] = track_ids_collected
+    current_ids['c_ids_collected'] = comment_ids_collected
+    
+    #do grandfather father son backup
+    
+    pickle.dump(current_ids, open("current_ids.p", "wb"))
+    
+
+########################OLD 
 def collectFollowLinksFromSeedUser(user,sampleSize):
     ''' Populate the users and x_follows_y sets with data sampled from SoundCloud '''
     global users
