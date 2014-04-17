@@ -288,7 +288,7 @@ def get_new_snowball_sample(sample_size=500, desired_seed_users=set(), batch_siz
         # NB Python passes parameters by reference so any changes made by the called method will propagate through to the caller
         num_still_to_collect = sample_size - len(data.user_ids_collected)
         if (num_still_to_collect>=batch_size):
-            print(str(len(data.user_ids_collected))+'/'+str(sample_size)+' total users collected so far. Collecting the next batch of 100 users')
+            print(str(len(data.user_ids_collected))+'/'+str(sample_size)+' total users collected so far. Collecting the next batch of '+str(batch_size)+' users')
             batch_data_collection(data, batch_size)
         else: 
             print(str(len(data.user_ids_collected))+'/'+str(sample_size)+' total users collected so far. Collecting the next batch of '+str(num_still_to_collect)+' users')
@@ -298,7 +298,7 @@ def get_new_snowball_sample(sample_size=500, desired_seed_users=set(), batch_siz
 	# NB I've chosen 10 seconds sleep, slightly arbitrarily, based on experiments so far
         time.sleep(pause_between_batches) # wait 10 seconds to give the server a break
         print 'Finished pausing, time for more data collection - please do not interrupt...'
-    print('Snowball sample fully collected with a sample size of '+str(data.user_ids_collected)+' users.')
+    print('Snowball sample fully collected with a sample size of '+str(len(data.user_ids_collected))+' users.')
      
 # def get_new_snowball_sample(sample_size=10):
 #     ''' Generates a new sample of users (set to the specified sample size, default 10), also generating 
