@@ -6,117 +6,115 @@ Created on Feb 25, 2014
 
 import random
 import soundcloud  # @UnresolvedImport
-import process_scdb_data as pscd
+#import process_scdb_data as pscd
 
-import clientSettings as client
-client = soundcloud.Client(client_id=client.get_client_id())
-
-import sqlite3
+import clientSettings
 import time
+import sqlite3
 
-requestCount = 0
-
-try:
+try:   # not all Python implementations have cPickle, pickle is a slower alternative
     import cPickle as pickle
 except:
     import pickle
+db_path = 'scdb.sqlite'
+client = soundcloud.Client(client_id=clientSettings.get_client_id())
+request_count = 0
+time_delay = 2 # time delay in seconds between failed attempts
 
-# The following global variables represent information about the SoundCloud users in our
-# sample set. We only collect data on users in our sample set, discarding other data
-# For each set of SoundCloud *objects* (excluding sets of tuples), 
-# we maintain a list of ids of members in that set.
-# This is to avoid duplicates appearing in the set, due to two identical SoundCloud
-# objects not being recognised as being the same object.
-  
-# users = set of SoundCloud user objects
-users = set()
-user_ids_collected = set()
-user_ids_to_collect = set()
-# x_follows_y = set of tuples (x, y) representing follow relationships in SoundCloud where x follows y (and x and y are both in "users")
-x_follows_y = set()
-# tracks = set of SoundCloud track objects where tracks belong to users in "users"
-# NB tracks does *not* include tracks by non-sampled users, even if a sampled user has commented or favourited that track
-# ids of these tracks can be obtained through the relevant fields in the favourites/comments sets
-# and the ids can be used to get more information from SoundCloud on those tracks if required  
-tracks = set()
-track_ids_collected = set()
-# TODO add the four items below as DB tables
-# groups - set of tuples representing SoundCloud groups that a user has joined
-groups = set()
-# favourites (NB English spelling here, US spelling on SoundCloud) 
-#    - set of tuples representing tracks that a user has 'liked'
-favourites = set()
-# comments - set of SoundCloud comments for a particular track
-comments = set()
-comment_ids_collected = set()
-# playlists - set of SoundCloud users' playlisted tracks
-playlists = set()
-
-
-def printData():
-    global users
-    print('users (max 10, selected at random from '+str(len(users))+' users)')
-    temp_copy = users.copy()
-    count=0;
-    while (count<10 and len(temp_copy)>0):
-        popped = temp_copy.pop()
-        print(str(count)+'. user '+str(popped.id)+' '+popped.username)
-        count = count+1
+def get_table(table_name):
+    '''Returns a set of the contents of one entire table from the sqlite database.'''
+    global db_path
+    try:
+        conn = sqlite3.connect(db_path)
+        with conn:
+            curs = conn.cursor()
+            curs.execute("SELECT * FROM {!s}".format(table_name))
+            return set(curs.fetchall())  # list returned by curs.fetchall(), transformed to set
+    except Exception:
+        # for some reason, table contents couldn't be retrieved
+        # Just return an empty set in place of a set of contents
+        return set()
     
-    global x_follows_y
-    print ''
-    print('X-follows-Y relationships (max 10 selected at random from '+str(len(x_follows_y))+' follow relationships)')
-    temp_copy = x_follows_y.copy()
-    count=0;
-    while (count<10 and len(temp_copy)>0):
-        popped = temp_copy.pop()
-        print(str(count)+'. user id: '+str(popped[0])+' follows '+str(popped[1]))
-        count = count+1
+def get_pickled_data(pickled_data, ids_set_wanted):
+    ''' Returns a set of data from within the pickled data on ids to collect/collected. 
+        Handles exceptions, returning a blank set if the desired data is not in the pickled data'''
+    try:
+        return pickled_data[ids_set_wanted]   # this is a set
+    except:
+        return set()
+    
+
+class SC_data():
+    
+    def __init__(self):
+        # The following class variables represent data about the SoundCloud users in our
+        # sample set. We collect all data relating to users in our sample set
+        print '1. reading DATA from DB'  
+        # DATA OBTAINED FROM SOUNDCLOUD API
+        # users = set of SoundCloud user objects
+        self.users = get_table('users')
+        # tracks = set of SoundCloud track objects which users in "users" have interacted with
+        self.tracks = get_table('tracks')
+        # x_follows_y = set of tuples (x, y) representing follow relationships in SoundCloud where x follows y (and x and y are both in "users")
+        self.x_follows_y = get_table('x_follows_y')
+        # TODO add the four items below as DB tables
+        # favourites (NB UK spelling here, US spelling on SoundCloud) 
+        #    - set of tuples representing tracks that a user has 'liked'
+        self.favourites = get_table('favourites')
+        # groups - set of tuples representing SoundCloud groups that a user has joined
+        self.groups = get_table('groups')
+        # comments - set of SoundCloud comments for a particular track
+        self.comments = get_table('comments')
+        # playlists - set of SoundCloud users' playlisted tracks
+        self.playlists = get_table('playlists')
+       
+        print '2. unpickling FURTHER DATA'
+        # FURTHER DATA 
+        # For various SoundCloud data (especially SoundCloud objects), 
+        # we maintain a list of ids of members in that set.
+        # This is to assist data collection and also to avoid duplicates appearing
+        # in the set, due to two identical SoundCloud
+        # objects not being recognised as being the same object.
         
-    global tracks
-    print ''
-    print('tracks (max 10 selected at random from '+str(len(tracks))+' tracks)')
-    temp_copy = tracks.copy()
-    count=0;
-    while (count<10 and len(temp_copy)>0):
-        popped = temp_copy.pop()
-        try:  # might throw a type error if there are strange characters in the title or genre for a track
-            print(str(count)+'. user id: '+str(popped.user_id)+', track id: '+str(popped.id)+', title: '+popped.title+', genre: '+popped.genre)
-        except Exception as e:
-            print(str(count)+'. user id: '+str(popped.user_id)+', track id: '+str(popped.id)+', title and genre - error in displaying, '+ e.message)
-        count = count+1
-            
-    global groups
-    print ''
-    print('groups (max 10 selected at random from '+str(len(groups))+' groups)')
-    temp_copy = groups.copy()
-    count=0;
-    while (count<10 and len(temp_copy)>0):
-        popped = temp_copy.pop()
-        print(str(count)+'. user id: '+str(popped[0])+' is in group id: '+str(popped[1]))
-        count = count+1
+        # read in cpickle of sets of ids collected/to-collect
+        try:
+            current_ids = pickle.load(open("current_ids.p", "rb")) # this may throw an exception
+        except:            
+            # set default of empty sets for each set of ids if there is no cPickle data
+            print 'No data available on previous batches collected/users to collect data on. Initialising...'
+            self.user_ids_to_collect = set()
+            self.user_ids_collected = set()
+            self.track_ids_collected = set()
+            self.comment_ids_collected = set()
+        else:
+            self.user_ids_to_collect = get_pickled_data(current_ids, 'u_ids_to_collect')
+            self.user_ids_collected = get_pickled_data(current_ids, 'u_ids_collected')
+            self.track_ids_collected = get_pickled_data(current_ids, 't_ids_collected')
+            self.comment_ids_collected = get_pickled_data(current_ids, 'c_ids_collected')
+        
+    def print_data_summary(self):
+        print(str(len(self.users))+' users, '+ 
+              str(len(self.tracks))+' tracks, '+
+              str(len(self.x_follows_y))+' follows, '+
+              str(len(self.favourites))+' favourites, '+
+              str(len(self.groups))+' groups, '+
+              str(len(self.users))+' comments, '+
+              str(len(self.playlists))+' playlists.')
 
-    global favourites
-    print ''
-    print('User-favourited tracks (max 10 selected at random from '+str(len(favourites))+' user-favourite-track relationships)')
-    temp_copy = favourites.copy()
-    count=0;
-    while (count<10 and len(temp_copy)>0):
-        popped = temp_copy.pop()
-        print(str(count)+'. user id: '+str(popped[0])+' follows '+str(popped[1]))
-        count = count+1
+def peek_at_collection(collection_being_peeked, max=5):
+    if (len(collection_being_peeked)==0):
+        print('This data collection is empty')
+    else: 
+        print('Here is a list of (max) '+str(max)+' members of the collection (with '+str(len(collection_being_peeked))+' members):')
+        count=0;
+        for n in collection_being_peeked:
+            count = count+1
+            print(str(count)+': '+str(n))
+            if (count>=max):
+                break
 
-    global comments
-    print ''
-    print('User comments (max 10 selected at random from '+str(len(comments))+' comments from all users)')
-    temp_copy = comments.copy()
-    count=0;
-    while (count<10 and len(temp_copy)>0):
-        popped = temp_copy.pop()
-        print(str(count)+'. user id: '+str(popped.user_id)+' on track '+str(popped.track_id)+': '+popped.body)
-        count = count+1
-
-def getUserId(username):
+    
+def get_user_id_from_username(username):
     try:
         print('resolve user '+username)
         userId = client.get('/resolve', url='https://soundcloud.com/'+username)
@@ -125,7 +123,7 @@ def getUserId(username):
         print('invalid username given')
         return None
     
-def getUser(username):
+def get_user_from_username(username):
     ''' Returns a SoundCloud object with the data for the username given in the parameter'''
      
     try:
@@ -136,7 +134,7 @@ def getUser(username):
         print('invalid username given')
         return None
         
-def getRandomUser():
+def get_random_user():
     userfound = False
     while userfound == False: # SoundCloud has about 55 million users at this time - return random number between 0 and 200 million
         userId = random.randint(0, 200000000)
@@ -148,7 +146,7 @@ def getRandomUser():
             userfound = True    
     return user
 
-def getRandomLondonEMUser():
+def get_random_london_EM_user():
     userfound = False
     while userfound == False: # SoundCloud has about 55 million users at this time - return random number between 0 and 200 million
         userId = random.randint(0, 200000000)
@@ -157,16 +155,16 @@ def getRandomLondonEMUser():
         except Exception:
             pass
         else:
-            city = lowerCaseStr(user.city)
-            country = lowerCaseStr(user.country)
+            city = lower_case_str(user.city)
+            country = lower_case_str(user.country)
             print('Trying user '+str(userId)+' city '+city)
             if ('london' in city):               
                 print('            '+str(userId)+' city '+city+' country '+country+' with '+str(user.track_count)+' tracks')
                 if (('britain' in country) or ('united kingdom' in country)): 
                     user_tracks = client.get('/users/'+str(userId)+'/tracks')
                     for track in user_tracks:
-                        tag_list = lowerCaseStr(track.tag_list)
-                        genre = lowerCaseStr(track.genre)
+                        tag_list = lower_case_str(track.tag_list)
+                        genre = lower_case_str(track.genre)
                         print('************'+str(track.id)+' genre '+genre+' tag_list '+tag_list)
                         if (('electronic' in tag_list) or ('electronic' in genre)):
                             userfound = True
@@ -174,7 +172,7 @@ def getRandomLondonEMUser():
     print('London-based Electronic music User found: '+str(userId))
     return user
 
-def getRandomLondonUser():
+def get_random_london_user():
     userfound = False
     while userfound == False: # SoundCloud has about 55 million users at this time - return random number between 0 and 200 million
         userId = random.randint(0, 200000000)
@@ -183,8 +181,8 @@ def getRandomLondonUser():
         except Exception:
             pass
         else:
-            city = lowerCaseStr(user.city)
-            country = lowerCaseStr(user.country)
+            city = lower_case_str(user.city)
+            country = lower_case_str(user.country)
             print('Trying user '+str(userId)+' city '+city)
             if ('london' in city):               
                 print('            '+str(userId)+' city '+city+' country '+country)
@@ -194,7 +192,7 @@ def getRandomLondonUser():
     print('London-based User found: '+str(userId))
     return user
 
-def getRandomEMUser():
+def get_random_EM_user():
     userfound = False
     while userfound == False: # SoundCloud has about 55 million users at this time - return random number between 0 and 200 million
         userId = random.randint(0, 200000000)
@@ -206,8 +204,8 @@ def getRandomEMUser():
             print('Trying user '+str(userId)+' with '+str(user.track_count)+' tracks')
             user_tracks = client.get('/users/'+str(userId)+'/tracks')
             for track in user_tracks:
-                tag_list = lowerCaseStr(track.tag_list)
-                genre = lowerCaseStr(track.genre)
+                tag_list = lower_case_str(track.tag_list)
+                genre = lower_case_str(track.genre)
                 print('*******************************************'+str(track.id)+' genre '+genre+' tag_list '+tag_list)
                 if (('electronic' in tag_list) or ('electronic' in genre)):
                     userfound = True
@@ -215,154 +213,94 @@ def getRandomEMUser():
     print('Electronic music User found: '+str(userId))
     return user
 
-
-def lowerCaseStr(inputText):
-    return str.lower(unicode(inputText).encode('utf-8'))
-
-def getXUserIDs(limit=10):
-    temp_users = set()
-    for i in range(0,limit):  # @UnusedVariable
-        #print i
-        temp_users.add(getRandomUser().id)
-    return temp_users
+#def getXUserIDs(limit=10):
+#    temp_users = set()
+#    for i in range(0,limit):  # @UnusedVariable
+#        #print i
+#        temp_users.add(get_random_user().id)
+#    return temp_user 
 
 
-def getAllFollowers(user):
-    global users
-    strUserID = str(user.id)
-    followers = clientGet('/users/'+strUserID+'/followers')
-    print(str(len(users))+' users collected. Exploring followers of User '+ strUserID+' with '+str(len(followers))+' followers')
-    return followers
+def get_all_followers(user_id):
+    return client_get('/users/'+str(user_id)+'/followers')
+    
+def get_all_followings(user_id):
+    return client_get('/users/'+str(user_id)+'/followings')
 
-
-def getAllFollowings(user):
-    global users
-    strUserID = str(user.id)
-    followings = clientGet('/users/'+strUserID+'/followings')
-    print(str(len(users))+' users collected. Exploring following activities of User '+ strUserID+' who follows '+str(len(followings))+' users')
-    return followings
-
-
-def clientGet(request, maxAttempts=100):
-    global requestCount
+def client_get(request, max_attempts=100):
+    global client
+    global request_count
+    global time_delay
     success = False;
     count = 0
     result = None
-    timeDelay = 2 # time delay in seconds between failed attempts
     
-    while(not(success) and (count<maxAttempts)):
+    while(not(success) and (count<max_attempts)):
         try:
             result = client.get(request)
             success = True
             break
         except Exception as e:
             count = count+1
-            time.sleep(timeDelay)
-            print('Problem connecting to SoundCloud client, error '+str(e)+'. Trying again... attempt '+str(count)+' of '+str(maxAttempts))
+            time.sleep(time_delay)
+            print('Problem connecting to SoundCloud client, error '+str(e)+'. Trying again... attempt '+str(count)+' of '+str(max_attempts))
     if (not(success)):
         print('***Unable to retrieve information from SoundCloud for the request: '+request)
-    requestCount = requestCount+count+1
-    if (requestCount>=25):   # every 25 times we request data from SoundCloud, pause (to avoid overloading the server)
-        time.sleep((5*timeDelay))
-        requestCount = 0
+    request_count = request_count+count+1
+    if (request_count>=25):   # every 25 times we request data from SoundCloud, pause (to avoid overloading the server)
+        time.sleep((5*time_delay))
+        request_count = 0
     return result
-            
+
+def lower_case_str(inputText):
+    return str.lower(unicode(inputText).encode('utf-8'))
+
             
 
-def getNewSnowballSample(sample_size=500,desired_seed_users=set()):
+def get_new_snowball_sample(sample_size=500, desired_seed_users=set(), batch_size=100, pause_between_batches=10):
     '''Generates a new sample of users (set to the specified sample size, default 500), also generating 
      data on those users' tracks and how the users interact with other users on SoundCloud.
      N.B. This builds on any previously collected samples that are stored in scdb.sqlite   
      To call this function, give the parameters as an integer (number of users needed) and 
      a set of userIds that you would like the function to use as starting points, 
-     e.g. getNewSnowballSample(1000, {83918, 1479884, 5783})       
+     e.g. get_new_snowball_sample(1000, {83918, 1479884, 5783})       
 
     ALGORITHM
     DONE get desired_samplesize and ids of desired seed users
-    DONE read in data collected so far
-    read in cpickle of sets of ids collected/to-collect
+    DONE read in data collected so far and cpickle of sets of ids collected/to-collect
     DONE add ids of desired seed users to user_ids_to_collect
     DONE repeat until size(user_ids_collected) == desired_samplesize:    
         DONE print 'x/n total users collected so far. Collecting the next batch of 100 users'
-        DONE call batchDataCollection function
-        DONE print 'Pausing for 10 seconds' 
-        NB this is the time window when we can interrupt batchDataCollection 
+        DONE call batch_data_collection function
+        DONE print 'Pausing for x seconds' 
+        NB this is the time window when we can interrupt batch_data_collection 
         NB I've chosen 10 seconds sleep, slightly arbitrarily, based on experiments so far
     done'''
-    global users
-    global tracks
-    global x_follows_y
-    global favourites
-    global comments
-    global groups
-    global playlists
-    global user_ids_collected
-    global user_ids_to_collect
-    global track_ids_collected
-    global comment_ids_collected
     
     # read in data collected so far
-    data = pscd.data_holder()
-
-    users = data.users
-    tracks = data.tracks
-    x_follows_y = data.x_follows_y
-    favourites = data.favourites
-    comments = data.comments
-    groups = data.groups
-    playlists = data.playlists
-    
-    # read in cpickle of sets of ids collected/to-collect
-    # set default of empty sets for each set of ids, to be replaced by the cpickle contents
-    user_ids_to_collect = set()
-    user_ids_collected = set()
-    track_ids_collected = set()
-    comment_ids_collected = set()
-    try:
-        current_ids = pickle.load(open("current_ids.p", "rb"))
-        user_ids_to_collect = current_ids['u_ids_to_collect']
-        user_ids_collected = current_ids['u_ids_collected']
-        track_ids_collected = current_ids['t_ids_collected']
-        comment_ids_collected = current_ids['c_ids_collected']
-    except: 
-        pass # use default values of empty sets for any id sets not initialised
+    data = SC_data()
 
     # add ids of desired seed users to user_ids_to_collect
-    user_ids_to_collect = user_ids_to_collect.union(desired_seed_users)
+    data.user_ids_to_collect = data.user_ids_to_collect.union(desired_seed_users)
     print('Generating snowball sample with a sample size of '+str(sample_size))
     #repeat until size(user_ids_collected) == desired_samplesize:
-    
-    while (len(user_ids_collected)<sample_size):
-        print(str(len(user_ids_collected))+'/'+str(sample_size)+' total users collected so far. Collecting the next batch of 100 users')
-        batchDataCollection()
-	print 'Pausing for 10 seconds - if you want to interrupt data collection, do it now.'
-	# this is the time window when we can interrupt batchDataCollection 
+    while (len(data.user_ids_collected)<sample_size):
+        # NB Python passes parameters by reference so any changes made by the called method will propagate through to the caller
+        num_still_to_collect = sample_size - len(data.user_ids_collected)
+        if (num_still_to_collect>=batch_size):
+            print(str(len(data.user_ids_collected))+'/'+str(sample_size)+' total users collected so far. Collecting the next batch of 100 users')
+            batch_data_collection(data, batch_size)
+        else: 
+            print(str(len(data.user_ids_collected))+'/'+str(sample_size)+' total users collected so far. Collecting the next batch of '+str(num_still_to_collect)+' users')
+            batch_data_collection(data, num_still_to_collect)  
+	print('Pausing for '+str(pause_between_batches)+' seconds. You can interrupt data collection now by pressing Ctrl-C')
+	# this is the time window when we can interrupt batch_data_collection 
 	# NB I've chosen 10 seconds sleep, slightly arbitrarily, based on experiments so far
-        time.sleep(10) # wait 10 seconds to give the server a break
-        print 'Finished pausing, time for more data collection - now please wait till the next pause if you want to interrupt data collection'
-############################ OLD ######################
-#         if (len(user_ids_to_collect) ==0):
-#             user = getRandomUser() # get a new starting point at random        
-#         else:
-#             userId = user_ids_to_collect.pop(0)
-#             user = clientGet('/users/'+str(userId)) 
-# #         print('User id currently = '+str(user.id))
-#         if (not(user.id in user_ids_collected)): # Have we already added this u
-#             users.add(user)
-#             user_ids_collected.append(user.id)
-#             print('Seed user = '+str(user.id))
-#             if (len(users)<sample_size):  #in case adding the new user to our sample brings us to our desired samplesize
-#                 collectFollowLinksFromSeedUser(user,sample_size)
-#         
-#     # populate the contents of the remaining global variables  with data relating to the new sample of users
-#     getTracks()
-#     getFavourites()
-#     getGroups()
-#     getPlaylists()
-#     getComments()
-
+        time.sleep(pause_between_batches) # wait 10 seconds to give the server a break
+        print 'Finished pausing, time for more data collection - please do not interrupt...'
+    print('Snowball sample fully collected with a sample size of '+str(data.user_ids_collected)+' users.')
      
-# def getNewSnowballSample(sample_size=10):
+# def get_new_snowball_sample(sample_size=10):
 #     ''' Generates a new sample of users (set to the specified sample size, default 10), also generating 
 #     data on those users' tracks and follow relationships between the users in the set 
 #     N.B. This wipes any previously collected samples that are only stored in local memory '''    
@@ -390,10 +328,10 @@ def getNewSnowballSample(sample_size=500,desired_seed_users=set()):
 #     while (len(users)<sample_size):
 # #         print(str(sample_size)+' sample_size '+ str(len(users))+' users '+', explore: '+str(user_ids_to_collect)+' added: '+str(user_ids_collected))
 #         if (len(user_ids_to_collect) ==0):
-#             user = getRandomUser() # get a new starting point at random        
+#             user = get_random_user() # get a new starting point at random        
 #         else:
 #             userId = user_ids_to_collect.pop(0)
-#             user = clientGet('/users/'+str(userId)) 
+#             user = client_get('/users/'+str(userId)) 
 # #         print('User id currently = '+str(user.id))
 #         if (not(user.id in user_ids_collected)): # Have we already added this u
 #             users.add(user)
@@ -410,9 +348,8 @@ def getNewSnowballSample(sample_size=500,desired_seed_users=set()):
 #     getComments()
 
 
-def batchDataCollection(batch_size=100):
-    ''' Batch function to collect x number of users (default 100) and all assorted data
-	read in cpickle and DB information from previous runs into runtime memory
+def batch_data_collection(data, batch_size):
+    ''' Batch function to collect x number of users and all assorted data
 	num_users_collected = 0
 	repeat until 100 users collected:
 		if the user_ids_to_collect set is nonempty:      
@@ -434,21 +371,60 @@ def batchDataCollection(batch_size=100):
 	# (go back to the start of the repeat loop again)
 	
 	# Now we have collected 100 users
-	call backupData 
+	call backupData and save collected data externally
 	# done
 	'''
-    global users
-    global tracks
-    global x_follows_y
-    global favourites
-    global comments
-    global groups
-    global playlists
-    global user_ids_collected
-    global user_ids_to_collect
-    global track_ids_collected
-    global comment_ids_collected
-    print 'TODO BatchCollection'
+    # repeat until 100 users collected:
+    num_users_to_be_collected = len(data.user_ids_collected)+batch_size
+    while(len(data.user_ids_collected) < num_users_to_be_collected):
+        if (len(data.user_ids_to_collect)==0):
+            seed_user = get_random_user()
+        else: 
+            seed_user = client_get('/users/'+str(data.user_ids_to_collect.pop()))
+        data.user_ids_collected.add(seed_user.id)
+        peek_at_collection(data.user_ids_collected)
+#        if the user_ids_to_collect set is nonempty:      
+#            pop a user_id from the set and set that user_id as seed.
+#        else: set random user as seed
+#        
+#        # below, 'collect'='get data from soundcloud API, store in relevant internal data structure'
+#        # if an item has already been collected, collect it again and check if 
+#        # the collected info needs updating 
+#        # (we want to have the most up to date information)
+#            call collectFollowsAndFollowersData(user)
+#            call collectFavouritedTracksData(user)
+#            call collectGroupsData(user)
+#            call collectProducedTracksData(user)
+#            call collectCommentsData(user)
+#            call collectPlaylistData(user)
+#        # now finished with this user, move onto the next user until 100 users collected
+#        num_users_collected++
+#    # (go back to the start of the repeat loop again)
+#    
+#    # Now we have collected 100 users
+#    call backupData 
+#    # done
+    
+    ############################ OLD ######################
+#         if (len(user_ids_to_collect) ==0):
+#             user = get_random_user() # get a new starting point at random        
+#         else:
+#             userId = user_ids_to_collect.pop(0)
+#             user = client_get('/users/'+str(userId)) 
+# #         print('User id currently = '+str(user.id))
+#         if (not(user.id in user_ids_collected)): # Have we already added this u
+#             users.add(user)
+#             user_ids_collected.append(user.id)
+#             print('Seed user = '+str(user.id))
+#             if (len(users)<sample_size):  #in case adding the new user to our sample brings us to our desired samplesize
+#                 collectFollowLinksFromSeedUser(user,sample_size)
+#         
+#     # populate the contents of the remaining global variables  with data relating to the new sample of users
+#     getTracks()
+#     getFavourites()
+#     getGroups()
+#     getPlaylists()
+#     getComments()
 
 def collectFollowsAndFollowersData(user):
     '''collect ids of all users that our seed user follows: 
@@ -520,20 +496,13 @@ def backupData():
         save current information to sonDB+pickle # save updated DB tables and cpickle
     
     '''
-    global user_ids_to_collect
-    global user_ids_collected
-    global track_ids_collected
-    global comment_ids_collected
-    current_ids = dict()
-    current_ids['u_ids_to_collect'] = user_ids_to_collect
-    current_ids['u_ids_collected'] = user_ids_collected
-    current_ids['t_ids_collected'] = track_ids_collected
-    current_ids['c_ids_collected'] = comment_ids_collected
+    global db_path
     
     #do grandfather father son backup
     
     pickle.dump(current_ids, open("current_ids.p", "wb"))
-    
+    print('Latest snapshot of data stored in '+db_path+' database.')
+
 
 ########################OLD 
 def collectFollowLinksFromSeedUser(user,sampleSize):
@@ -543,7 +512,7 @@ def collectFollowLinksFromSeedUser(user,sampleSize):
     global x_follows_y
     global user_ids_to_collect
     # look for all followers of user    
-    followers = getAllFollowers(user)
+    followers = get_all_followers(user.id)
     # process each follower
     for follower in followers:
         # Add follows relationships between the follower and this seed user
@@ -553,7 +522,7 @@ def collectFollowLinksFromSeedUser(user,sampleSize):
             user_ids_to_collect.append(follower.id)
       
     # look for all followings of user (i.e. all users that our seed user follows)    
-    followings = getAllFollowings(user)
+    followings = get_all_followings(user.id)
 
     # process each user that the seed user follows (= followings)
     for following in followings:
@@ -571,7 +540,7 @@ def getTracks():
     global track_ids_collected
     for user in users:
         u_id = user.id 
-        user_tracks = clientGet('/users/'+str(u_id)+'/tracks')
+        user_tracks = client_get('/users/'+str(u_id)+'/tracks')
         for u_track in user_tracks:
             if (not(u_track.id in track_ids_collected)):
                 tracks.add(u_track)
@@ -584,7 +553,7 @@ def getGroups():
     global groups
     for user in users:
         u_id = user.id 
-        user_groups = clientGet('/users/'+str(u_id)+'/groups')
+        user_groups = client_get('/users/'+str(u_id)+'/groups')
         for u_group in user_groups:
             if (not(u_group in groups)):
                 groups.add((u_id, u_group.id))
@@ -596,7 +565,7 @@ def getFavourites():
     global favourites
     for user in users:
         u_id = user.id 
-        user_favourites = clientGet('/users/'+str(u_id)+'/favorites') # Note US spelling
+        user_favourites = client_get('/users/'+str(u_id)+'/favorites') # Note US spelling
         for u_favourite in user_favourites:
             favourites.add((u_id, u_favourite.id))    
     
@@ -608,7 +577,7 @@ def getComments():
     global comment_ids_collected
     for user in users:
         u_id = user.id 
-        user_comments = clientGet('/users/'+str(u_id)+'/comments')
+        user_comments = client_get('/users/'+str(u_id)+'/comments')
         for u_comment in user_comments:
             if (not(u_comment.id in comment_ids_collected)):
                 comments.add(u_comment)
@@ -621,7 +590,7 @@ def getPlaylists():
     global playlists
     for user in users:
         u_id = user.id 
-        user_playlists = clientGet('/users/'+str(u_id)+'/playlists') 
+        user_playlists = client_get('/users/'+str(u_id)+'/playlists') 
         for u_playlist in user_playlists:
             for u_track in u_playlist.tracks:
                 playlists.add((u_id, u_playlist.id, u_track.id))
@@ -787,6 +756,6 @@ def exportDataToSQLite():
         print('Data saved in '+dbFileName)
 
 def main(sampleSize = 15): 
-    getNewSnowballSample(sampleSize)
-    printData() 
+    get_new_snowball_sample(sampleSize)
+    #printData() 
     exportDataToSQLite()
