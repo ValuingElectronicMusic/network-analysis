@@ -266,13 +266,13 @@ def get_new_snowball_sample(sample_size=500, desired_seed_users=set(), batch_siz
      batch_size=2, pause_between_batches=2)     
 
     ALGORITHM
-    DONE get desired_samplesize and ids of desired seed users
-    DONE read in data collected so far and cpickle of sets of ids collected/to-collect
-    DONE add ids of desired seed users to user_ids_to_collect
-    DONE repeat until size(user_ids_collected) == desired_samplesize:    
-        DONE print 'x/n total users collected so far. Collecting the next batch of 100 users'
-        DONE call batch_data_collection function
-        DONE print 'Pausing for x seconds' 
+    get desired_samplesize and ids of desired seed users
+    read in data collected so far and cpickle of sets of ids collected/to-collect
+    add ids of desired seed users to user_ids_to_collect
+    repeat until size(user_ids_collected) == desired_samplesize:    
+        print 'x/n total users collected so far. Collecting the next batch of 100 users'
+        call batch_data_collection function
+        print 'Pausing for x seconds' 
         NB this is the time window when we can interrupt batch_data_collection 
         NB I've chosen 10 seconds sleep, slightly arbitrarily, based on experiments so far
     done'''
@@ -525,7 +525,7 @@ def collect_playlist_data(data, user):
 
 def backup_and_save_data(data):
     '''
-        { backup: (grandfather - father - son: grandfather is the oldest backup,
+        backup: (grandfather - father - son: grandfather is the oldest backup,
         # father is the most recent backup, son is the current version)
         check time:
                 if current_time>=24 hours later than last_backup_timestamp:
@@ -542,7 +542,14 @@ def backup_and_save_data(data):
     
     #do grandfather father son backup
     print('TODO backup_and_save_data')
-    #pickle.dump(current_ids, open("current_ids.p", "wb"))
+    # TODO possibly put this within SC_data class?
+    #Êuse export_data_to_SQLite 
+    # and
+    # https://docs.python.org/2/library/os.html
+    # and 
+    # pickle.dump(current_ids, open("current_ids.p", "wb"))
+    
+    # TODO the next statement is currently a lie
     print('Latest snapshot of data stored in '+db_path+' database.')
 
 
@@ -707,7 +714,7 @@ def export_data_to_SQLite():
         db.close()
         print('Data saved in '+dbFileName)
 
-def main(sampleSize = 15): 
-    get_new_snowball_sample(sampleSize)
+def main(sample_size = 10): 
+    gsc.get_new_snowball_sample(sample_size, {63287951}, 2, 5)  
     #printData() 
-    export_data_to_SQLite()
+    #export_data_to_SQLite()
