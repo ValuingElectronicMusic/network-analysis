@@ -543,7 +543,8 @@ def backup_and_save_data(data):
     #do grandfather father son backup
     print('TODO backup_and_save_data')
     # TODO possibly put this within SC_data class?
-    #Êuse export_data_to_SQLite 
+ 
+    # use export_data_to_SQLite
     # and
     # https://docs.python.org/2/library/os.html
     # and 
@@ -715,6 +716,6 @@ def export_data_to_SQLite():
         print('Data saved in '+dbFileName)
 
 def main(sample_size = 10): 
-    gsc.get_new_snowball_sample(sample_size, {63287951}, 2, 5)  
+    get_new_snowball_sample(sample_size, {63287951}, 2, 5)  
     #printData() 
     #export_data_to_SQLite()
