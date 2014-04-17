@@ -8,33 +8,43 @@
 # of these do.
 
 from sqlite3 import connect
+import getSoundCloudData as gsc
 
 db_path = 'scdb.sqlite'
 
-def get_table(tableName):
-    '''Returns a list of the contents of one entire table from the sqlite database.'''
-    try:
-        conn = connect(db_path)
-        with conn:
-            curs = conn.cursor()
-            curs.execute("SELECT * FROM {!s}".format(tableName))
-            return curs.fetchall()
-    except Exception:
-        # for some reason, table contents couldn't be retrieved
-        # Just return an empty list instead of a list of contents
-        return list()
+#def get_table(tableName):
+#    '''Returns a list of the contents of one entire table from the sqlite database.'''
+#    try:
+#        conn = connect(db_path)
+#        with conn:
+#            curs = conn.cursor()
+#            curs.execute("SELECT * FROM {!s}".format(tableName))
+#            return curs.fetchall()
+#    except Exception:
+#        # for some reason, table contents couldn't be retrieved
+#        # Just return an empty list instead of a list of contents
+#        return list()
         
 class data_holder():
     'An object to hold data from each of the four tables in the database.'
 
     def __init__(self):
-        self.users = set(get_table('users'))
-        self.tracks = set(get_table('tracks'))
-        self.x_follows_y = set(get_table('x_follows_y'))
-        self.favourites = set(get_table('favourites'))
-        self.groups = set(get_table('groups'))
-        self.comments = set(get_table('comments'))
-        self.playlists = set(get_table('playlists'))
+        # users = set of SoundCloud user objects
+        self.users = gsc.get_table('users')
+        # tracks = set of SoundCloud track objects which users in "users" have interacted with
+        self.tracks = gsc.get_table('tracks')
+        # x_follows_y = set of tuples (x, y) representing follow relationships in SoundCloud where x follows y (and x and y are both in "users")
+        self.x_follows_y = gsc.get_table('x_follows_y')
+        # favourites (NB UK spelling here, US spelling on SoundCloud) 
+        #    - set of tuples representing tracks that a user has 'liked'
+        self.favourites = gsc.get_table('favourites')
+        # groups - set of tuples representing SoundCloud groups that a user has joined
+        self.groups = gsc.get_table('groups')
+        # comments - set of SoundCloud comments for a particular track
+        self.comments = gsc.get_table('comments')
+        # playlists - set of SoundCloud users' playlisted tracks
+        self.playlists = gsc.get_table('playlists')
+        
         
 
 class entity_holder():

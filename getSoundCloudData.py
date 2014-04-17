@@ -57,7 +57,6 @@ class SC_data():
         self.tracks = get_table('tracks')
         # x_follows_y = set of tuples (x, y) representing follow relationships in SoundCloud where x follows y (and x and y are both in "users")
         self.x_follows_y = get_table('x_follows_y')
-        # TODO add the four items below as DB tables
         # favourites (NB UK spelling here, US spelling on SoundCloud) 
         #    - set of tuples representing tracks that a user has 'liked'
         self.favourites = get_table('favourites')
@@ -263,7 +262,8 @@ def get_new_snowball_sample(sample_size=500, desired_seed_users=set(), batch_siz
      N.B. This builds on any previously collected samples that are stored in scdb.sqlite   
      To call this function, give the parameters as an integer (number of users needed) and 
      a set of userIds that you would like the function to use as starting points, 
-     e.g. get_new_snowball_sample(1000, {83918, 1479884, 5783})       
+     e.g. gsc.get_new_snowball_sample(sample_size=10, desired_seed_users={63287951}, 
+     batch_size=2, pause_between_batches=2)     
 
     ALGORITHM
     DONE get desired_samplesize and ids of desired seed users
@@ -293,59 +293,15 @@ def get_new_snowball_sample(sample_size=500, desired_seed_users=set(), batch_siz
         else: 
             print(str(len(data.user_ids_collected))+'/'+str(sample_size)+' total users collected so far. Collecting the next batch of '+str(num_still_to_collect)+' users')
             batch_data_collection(data, num_still_to_collect)  
-	print('Pausing for '+str(pause_between_batches)+' seconds. You can interrupt data collection now by pressing Ctrl-C')
-	# this is the time window when we can interrupt batch_data_collection 
-	# NB I've chosen 10 seconds sleep, slightly arbitrarily, based on experiments so far
+	    print('Pausing for '+str(pause_between_batches)+' seconds. You can interrupt data collection now by pressing Ctrl-C')
+        print('User ids collected: '+str(data.user_ids_collected))
+	    # this is the time window when we can interrupt batch_data_collection 
+	    # NB I've chosen 10 seconds sleep, slightly arbitrarily, based on experiments so far
         time.sleep(pause_between_batches) # wait 10 seconds to give the server a break
         print 'Finished pausing, time for more data collection - please do not interrupt...'
     print('Snowball sample fully collected with a sample size of '+str(len(data.user_ids_collected))+' users.')
-     
-# def get_new_snowball_sample(sample_size=10):
-#     ''' Generates a new sample of users (set to the specified sample size, default 10), also generating 
-#     data on those users' tracks and follow relationships between the users in the set 
-#     N.B. This wipes any previously collected samples that are only stored in local memory '''    
-#     global users
-#     global user_ids_collected
-#     global user_ids_to_collect
-#     global tracks
-#     global track_ids_collected
-#     global x_follows_y
-#     global groups
-#     global favourites
-#     global comments
-#     global comment_ids_collected
-#     users = set() # initialised to empty
-#     user_ids_collected = list()
-#     user_ids_to_collect = list()
-#     x_follows_y = set() # initialised to empty
-#     tracks = set() # initialised to empty
-#     track_ids_collected = list()
-#     groups = set() # initialised to empty
-#     favourites = set() # initialised to empty
-#     comments = set() # initialised to empty
-#     comment_ids_collected = list()
-#     print('Generating snowball sample with a sample size of '+str(sample_size))
-#     while (len(users)<sample_size):
-# #         print(str(sample_size)+' sample_size '+ str(len(users))+' users '+', explore: '+str(user_ids_to_collect)+' added: '+str(user_ids_collected))
-#         if (len(user_ids_to_collect) ==0):
-#             user = get_random_user() # get a new starting point at random        
-#         else:
-#             userId = user_ids_to_collect.pop(0)
-#             user = client_get('/users/'+str(userId)) 
-# #         print('User id currently = '+str(user.id))
-#         if (not(user.id in user_ids_collected)): # Have we already added this u
-#             users.add(user)
-#             user_ids_collected.append(user.id)
-#             print('Seed user = '+str(user.id))
-#             if (len(users)<sample_size):  #in case adding the new user to our sample brings us to our desired samplesize
-#                 collectFollowLinksFromSeedUser(user,sample_size)
-#         
-#     # populate the contents of the remaining global variables  with data relating to the new sample of users
-#     getTracks()
-#     getFavourites()
-#     getGroups()
-#     #getPlaylists()
-#     getComments()
+    data.print_data_summary()
+    return data # in case results are to be collected during runtime  
 
 
 def batch_data_collection(data, batch_size):
@@ -360,73 +316,66 @@ def batch_data_collection(data, batch_size):
 		# if an item has already been collected, collect it again and check if 
 		# the collected info needs updating 
 		# (we want to have the most up to date information)
-	        call collectFollowsAndFollowersData(user)
-	        call collectFavouritedTracksData(user)
-	        call collectGroupsData(user)
-	        call collectProducedTracksData(user)
-	        call collectCommentsData(user)
-	        call collectPlaylistData(user)
+	        call collect_follows_and_followers_data(user)
+	        call collect_favourited_tracks_data(user)
+	        call collect_groups_data(user)
+	        call collect_produced_tracks_data(user)
+	        call collect_comments_data(user)
+	        call collect_playlist_data(user)
 		# now finished with this user, move onto the next user until 100 users collected
 		num_users_collected++
 	# (go back to the start of the repeat loop again)
 	
 	# Now we have collected 100 users
-	call backupData and save collected data externally
+	call backup_and_save_data and save collected data externally
 	# done
 	'''
     # repeat until 100 users collected:
     num_users_to_be_collected = len(data.user_ids_collected)+batch_size
+    
     while(len(data.user_ids_collected) < num_users_to_be_collected):
-        if (len(data.user_ids_to_collect)==0):
-            seed_user = get_random_user()
-        else: 
-            seed_user = client_get('/users/'+str(data.user_ids_to_collect.pop()))
-        data.user_ids_collected.add(seed_user.id)
-        peek_at_collection(data.user_ids_collected)
 #        if the user_ids_to_collect set is nonempty:      
 #            pop a user_id from the set and set that user_id as seed.
-#        else: set random user as seed
-#        
-#        # below, 'collect'='get data from soundcloud API, store in relevant internal data structure'
-#        # if an item has already been collected, collect it again and check if 
-#        # the collected info needs updating 
-#        # (we want to have the most up to date information)
-#            call collectFollowsAndFollowersData(user)
-#            call collectFavouritedTracksData(user)
-#            call collectGroupsData(user)
-#            call collectProducedTracksData(user)
-#            call collectCommentsData(user)
-#            call collectPlaylistData(user)
-#        # now finished with this user, move onto the next user until 100 users collected
-#        num_users_collected++
-#    # (go back to the start of the repeat loop again)
-#    
-#    # Now we have collected 100 users
-#    call backupData 
-#    # done
-    
-    ############################ OLD ######################
-#         if (len(user_ids_to_collect) ==0):
-#             user = get_random_user() # get a new starting point at random        
-#         else:
-#             userId = user_ids_to_collect.pop(0)
-#             user = client_get('/users/'+str(userId)) 
-# #         print('User id currently = '+str(user.id))
-#         if (not(user.id in user_ids_collected)): # Have we already added this u
-#             users.add(user)
-#             user_ids_collected.append(user.id)
-#             print('Seed user = '+str(user.id))
-#             if (len(users)<sample_size):  #in case adding the new user to our sample brings us to our desired samplesize
-#                 collectFollowLinksFromSeedUser(user,sample_size)
-#         
-#     # populate the contents of the remaining global variables  with data relating to the new sample of users
-#     getTracks()
-#     getFavourites()
-#     getGroups()
-#     getPlaylists()
-#     getComments()
+        seed_user_found = False
+        potential_new_seed_user = 0 # init dummy value
+        while ((len(data.user_ids_to_collect) > 0) and not(seed_user_found)):
+            potential_new_seed_user = data.user_ids_to_collect.pop()
+            # check data hasn't already been collected for this new seed user
+            seed_user_found = not(potential_new_seed_user in data.user_ids_collected)
+            # (if it has been, go round the inner while loop again till either 
+            # there are no more user_ids_to_collect or till a new seed user has been found 
+        if (seed_user_found):
+            seed_user = client_get('/users/'+str(potential_new_seed_user))
+            seed_user_id = potential_new_seed_user
+        # else: set random user as seed
+        else: 
+            seed_user = get_random_user()
+            seed_user_id = seed_user.id
 
-def collectFollowsAndFollowersData(user):
+        data.users.add(seed_user)
+        data.user_ids_collected.add(seed_user_id)
+       
+        # Collect data relevant to that user
+        # NB 'collect'='get data from soundcloud API, store in relevant internal data structure'
+        # if an item has already been collected, collect it again and check if 
+        # the collected info needs updating 
+        # (we want to have the most up to date information)
+        collect_follows_and_followers_data(data, seed_user_id)
+        collect_favourited_tracks_data(data, seed_user_id)
+        collect_groups_data(data, seed_user_id)
+        collect_produced_tracks_data(data, seed_user_id)
+        collect_comments_data(data, seed_user_id)
+        collect_playlist_data(data, seed_user_id)
+        # now finished with this user, move onto the next user until 100 users collected
+        # (go back to the start of the repeat loop again)
+    
+    # Here we are out of the while loop - we have collected 100 users
+    backup_and_save_data(data)
+    # done
+    
+
+
+def collect_follows_and_followers_data(data, user):
     '''collect ids of all users that our seed user follows: 
  		construct follows relationship tuple for each follow (seed_id, followed_user_id)
 		add ids to user_ids_to_collect
@@ -434,54 +383,147 @@ def collectFollowsAndFollowersData(user):
 		construct follows relationship tuple for each follow (follower_user_id, seed_id)
 		add ids to user_ids_to_collect
     '''
-    print 'TODO CollectFollowsAndFollowersData'
+    # collect ids of all users that our seed user follows 
+    # (all 'followings' of a user, in SC speak)    
+    followings = get_all_followings(user)
+    for following in followings:
+        # construct follows relationship tuple for each following (seed_id, followed_user_id)
+        data.x_follows_y.add((user, following.id))
+        # Add the followed user to add ids to user_ids_to_collect (if not already collected) 
+        if (not(following.id in data.user_ids_collected)):
+            data.user_ids_to_collect.add(following.id)
+            
+    # then collect ids of all users that follow our seed user: 
+    followers = get_all_followers(user)
+    for follower in followers:
+        # construct follows relationship tuple for each follow (follower_user_id, seed_id)
+        data.x_follows_y.add((follower.id, user))
+        # add the follower user to user_ids_to_collect (if not already collected)
+        if (not(follower.id in data.user_ids_collected)):
+            data.user_ids_to_collect.add(follower.id)
+      
 
-def collectFavouritedTracksData(user):
+    
+def collect_favourited_tracks_data(data, user):
     ''' collect all the user's favourited tracks
 		construct favourites tuple for each favouriting: (user_id, track_id, track_producer_id)
 		collect track information and add track_id to track_ids_collected
 		add all track_producer_ids to user_ids_to_collect
     '''
-    print 'TODO CollectFavouritedTracksData'
-	
-def collectGroupsData(user): 
+    # collect all the user's favourited tracks
+    user_favourites = client_get('/users/'+str(user)+'/favorites') # Remember US spelling
+    for fave in user_favourites:
+        # construct favourites tuple for each favouriting: 
+        # (our_favouriting_user_id, track_id, track_producer_id)
+        data.favourites.add((user,fave.id,fave.user_id))
+        # collect track information and add track_id to track_ids_collected
+        deal_with_new_track(data, str(fave.id))
+
+        
+def deal_with_new_track(data, track_id, track_object=None):        
+    if (not(track_id in data.track_ids_collected)):
+        print('TODO duplicate track found: track id '+str(track_id)) 
+        # TODO we want to collect the most up-to-date one 
+        # as tracks are dynamic objects, but for now, just don't collect new data
+        # data.tracks.remove(track)
+    else:
+        if (track_object==None):   # get the track, if we haven't already gotten it from API
+            track_object = client_get('/tracks/'+str(track_id))
+        data.tracks.add(track_object)
+        data.track_ids_collected.add(track_id)
+        # add track_producer_id to user_ids_to_collect
+        data.user_ids_to_collect.add(track_object.user_id) # any duplicate user ids will be removed by the set mechanisms
+
+        
+def collect_groups_data(data, user): 
     ''' collect all the user's groups
 		construct tuple (seed_id, group_id, group_name)
     '''
-######################## NB a group is created by a user. 
+######################## TODO NB a group is created by a user. 
 ######################## Is joining a group a measure of influence of the *creator* of the group?
 ######################## If so, add group_creator_id to tuple and to user_ids_to_collect
-    print 'TODO CollectGroupsData'
+######################## We can get this information about groups:
+######################## [u'permalink', u'members_count', u'name', u'track_count', u'creator', 
+########################  u'artwork_url', u'created_at', u'kind', u'uri', u'moderated', 
+########################  u'short_description', u'contributors_count', u'permalink_url', 
+########################  u'id', u'description']
 
-def collectProducedTracksData(user):
+    # collect all the user's groups
+    user_groups = client_get('/users/'+str(user)+'/groups')
+    # construct tuple (seed_id, group_id, group_name)
+    for group in user_groups:
+        data.groups.add((user, group.id, group.name))
+
+
+ 
+def collect_produced_tracks_data(data, user):
     ''' collect all tracks produced by seed user
 	 for each track:
 		collect all comments made on seed user's tracks
 		for each comment collected on seed user's track:
 			add comment id to comment_ids_collected
 			collect user id and add to user_ids_to_be_collected
-    '''
-    print 'TODO CollectProducedTracksData'
+    ''' 
+    # collect all tracks produced by seed user
+    user_tracks = client_get('/users/'+str(user)+'/tracks')
+    # for each track:
+    for track in user_tracks:
+        deal_with_new_track(data, track.id, track)
+        # collect all comments made on seed user's tracks
+        # NB Comments aren't dynamic in the same way as tracks, 
+        # so we don't need to be so vigilant about collecting the most up to date version
+        comments_on_track = client_get('/tracks/'+str(track.id)+'comments')
+#        for each comment collected on seed user's track:
+        for comment in comments_on_track:
+            deal_with_new_comment(data, comment)
 
-def collectCommentsData(user):
+def deal_with_new_comment(data, comment):
+    # NB Comments aren't dynamic in the same way as tracks, 
+    # so we don't need to be so vigilant about collecting the most up to date version
+
+    if (not(comment.id in data.comment_ids_collected)):
+        data.comments.add(comment)
+        # add comment id to comment_ids_collected
+        data.comment_ids_collected.add(comment.id)
+        # collect user id and add to user_ids_to_be_collected
+        data.user_ids_to_be_collected.add(comment.user_id)
+    # else do nothing, comment already collected and process
+
+
+def collect_comments_data(data, user):
     ''' collect all comments made by seed user
     for each comment:
 		add comment id to comment_ids_collected
 		collect track information and add track id to track_ids_collected
 		add track_creator_id to user_ids_to_collect
     '''
-    print 'TODO CollectCommentsData'
-
-def collectPlaylistData(user):
+    # collect all comments made by seed user
+    user_comments = client_get('/users/'+str(user)+'/comments')
+    for comment in user_comments:
+        deal_with_new_comment(data, comment)
+        # collect track information and deal with new track
+        deal_with_new_track(data, comment.track_id)
+        
+        
+def collect_playlist_data(data, user):
     '''	collect all playlists by the user
 		construct playlist tuple for each playlisted track: (user_id, playlist_id,track_id, track_producer_id)
 		collect track information and add track_id to track_ids_collected
 		add all track_producer_ids to user_ids_to_collect 
     ''' 
-    print 'TODO CollectPlaylistsData'
+    
+    # collect all playlists by the user
+    user_playlists = client_get('/users/'+str(user)+'/playlists') 
+    for playlist in user_playlists: # each playlist has a list of tracks
+        for track in playlist.tracks: # each track on a playlist is represented as a dict object
+            # construct playlist tuple for each playlisted track: 
+            # (user_id, playlist_id,track_id, track_producer_id)
+            data.playlists.add((user,playlist.id,track['id'],track['user_id']))
+            deal_with_new_track(data, track['id'])
 
 
-def backupData():
+
+def backup_and_save_data(data):
     '''
         { backup: (grandfather - father - son: grandfather is the oldest backup,
         # father is the most recent backup, son is the current version)
@@ -499,105 +541,14 @@ def backupData():
     global db_path
     
     #do grandfather father son backup
-    
-    pickle.dump(current_ids, open("current_ids.p", "wb"))
+    print('TODO backup_and_save_data')
+    #pickle.dump(current_ids, open("current_ids.p", "wb"))
     print('Latest snapshot of data stored in '+db_path+' database.')
 
 
-########################OLD 
-def collectFollowLinksFromSeedUser(user,sampleSize):
-    ''' Populate the users and x_follows_y sets with data sampled from SoundCloud '''
-    global users
-    global user_ids_collected
-    global x_follows_y
-    global user_ids_to_collect
-    # look for all followers of user    
-    followers = get_all_followers(user.id)
-    # process each follower
-    for follower in followers:
-        # Add follows relationships between the follower and this seed user
-        x_follows_y.add((follower.id, user.id))
-        # Add the follower to the list of SC users to be explored (if not already added) 
-        if (not(follower.id in user_ids_collected)):
-            user_ids_to_collect.append(follower.id)
-      
-    # look for all followings of user (i.e. all users that our seed user follows)    
-    followings = get_all_followings(user.id)
-
-    # process each user that the seed user follows (= followings)
-    for following in followings:
-        # Add follows relationships between the follower and this seed user
-        x_follows_y.add((user.id, following.id))
-        # Add the follower to the list of SC users to be explored (if not already added) 
-        if (not(following.id in user_ids_collected)):
-            user_ids_to_collect.append(following.id)
 
 
-def getTracks():
-    print 'Getting data about tracks produced by sampled users...'
-    global users
-    global tracks
-    global track_ids_collected
-    for user in users:
-        u_id = user.id 
-        user_tracks = client_get('/users/'+str(u_id)+'/tracks')
-        for u_track in user_tracks:
-            if (not(u_track.id in track_ids_collected)):
-                tracks.add(u_track)
-                track_ids_collected.append(u_track.id)
-    
-    
-def getGroups():
-    print 'Getting data about sampled users\' groups...'
-    global users
-    global groups
-    for user in users:
-        u_id = user.id 
-        user_groups = client_get('/users/'+str(u_id)+'/groups')
-        for u_group in user_groups:
-            if (not(u_group in groups)):
-                groups.add((u_id, u_group.id))
-
-        
-def getFavourites():
-    print 'Getting data about sampled users\' favourited tracks...'
-    global users
-    global favourites
-    for user in users:
-        u_id = user.id 
-        user_favourites = client_get('/users/'+str(u_id)+'/favorites') # Note US spelling
-        for u_favourite in user_favourites:
-            favourites.add((u_id, u_favourite.id))    
-    
-    
-def getComments():
-    print 'Getting data about all comments made by sampled users...'
-    global users
-    global comments
-    global comment_ids_collected
-    for user in users:
-        u_id = user.id 
-        user_comments = client_get('/users/'+str(u_id)+'/comments')
-        for u_comment in user_comments:
-            if (not(u_comment.id in comment_ids_collected)):
-                comments.add(u_comment)
-                comment_ids_collected.append(u_comment.id)
-    
- 
-def getPlaylists():
-    print 'Getting data about users\' playlists... '
-    global users
-    global playlists
-    for user in users:
-        u_id = user.id 
-        user_playlists = client_get('/users/'+str(u_id)+'/playlists') 
-        for u_playlist in user_playlists:
-            for u_track in u_playlist.tracks:
-                playlists.add((u_id, u_playlist.id, u_track.id))
-
-
-
-def exportDataToSQLite():
+def export_data_to_SQLite():
     global users
     global x_follows_y
     global tracks
@@ -613,6 +564,7 @@ def exportDataToSQLite():
         cursor.execute('''DROP TABLE IF EXISTS groups''')
         cursor.execute('''DROP TABLE IF EXISTS favourites''')
         cursor.execute('''DROP TABLE IF EXISTS comments''')
+        cursor.execute('''DROP TABLE IF EXISTS playlists''')
         db.commit()
         print 'Creating users table in DB....'
         # Check if table users does not exist and create it
@@ -746,7 +698,7 @@ def exportDataToSQLite():
     except Exception as e:
         # Roll back any change if something goes wrong
         db.rollback()
-        print 'Exception caught in exportDataToSQLite function'
+        print 'Exception caught in export_data_to_SQLite function'
         print e.message
         print(str(e.args))
         #raise e
@@ -758,4 +710,4 @@ def exportDataToSQLite():
 def main(sampleSize = 15): 
     get_new_snowball_sample(sampleSize)
     #printData() 
-    exportDataToSQLite()
+    export_data_to_SQLite()
