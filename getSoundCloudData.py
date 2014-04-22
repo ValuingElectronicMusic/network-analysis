@@ -4,8 +4,10 @@ Created on Feb 25, 2014
 @author: annajordanous
 '''
 
+# TODO log errors plus calls to client get in external log files 
+
 import random
-import soundcloud  # @UnresolvedImport
+import soundcloud  
 #import process_scdb_data as pscd
 
 import clientSettings
@@ -19,7 +21,7 @@ except:
 db_path = 'scdb.sqlite'
 client = soundcloud.Client(client_id=clientSettings.get_client_id())
 request_count = 0
-time_delay = 2 # time delay in seconds between failed attempts
+time_delay = 3 # time delay in seconds between failed attempts
 
 def get_table(table_name):
     '''Returns a set of the contents of one entire table from the sqlite database.'''
@@ -60,8 +62,10 @@ class SC_data():
         # favourites (NB UK spelling here, US spelling on SoundCloud) 
         #    - set of tuples representing tracks that a user has 'liked'
         self.favourites = get_table('favourites')
-        # groups - set of tuples representing SoundCloud groups that a user has joined
+        # groups - set of tuples representing data on SoundCloud groups involving sampled users 
         self.groups = get_table('groups')
+        # group_membership - set of tuples representing SoundCloud groups a user is member of
+        self.group_mem = get_table('group_mem')
         # comments - set of SoundCloud comments for a particular track
         self.comments = get_table('comments')
         # playlists - set of SoundCloud users' playlisted tracks
@@ -85,18 +89,21 @@ class SC_data():
             self.user_ids_collected = set()
             self.track_ids_collected = set()
             self.comment_ids_collected = set()
+            self.group_ids_collected = set()
         else:
             self.user_ids_to_collect = get_pickled_data(current_ids, 'u_ids_to_collect')
             self.user_ids_collected = get_pickled_data(current_ids, 'u_ids_collected')
             self.track_ids_collected = get_pickled_data(current_ids, 't_ids_collected')
             self.comment_ids_collected = get_pickled_data(current_ids, 'c_ids_collected')
-        
+            self.group_ids_collected = get_pickled_data(current_ids, 'g_ids_collected')
+            
     def print_data_summary(self):
         print(str(len(self.users))+' users, '+ 
               str(len(self.tracks))+' tracks, '+
               str(len(self.x_follows_y))+' follows, '+
               str(len(self.favourites))+' favourites, '+
               str(len(self.groups))+' groups, '+
+              str(len(self.group_mem))+' group memberships, '+
               str(len(self.users))+' comments, '+
               str(len(self.playlists))+' playlists.')
 
@@ -220,12 +227,6 @@ def get_random_EM_user():
 #    return temp_user 
 
 
-def get_all_followers(user_id):
-    return client_get('/users/'+str(user_id)+'/followers')
-    
-def get_all_followings(user_id):
-    return client_get('/users/'+str(user_id)+'/followings')
-
 def client_get(request, max_attempts=100):
     global client
     global request_count
@@ -242,13 +243,15 @@ def client_get(request, max_attempts=100):
         except Exception as e:
             count = count+1
             time.sleep(time_delay)
-            print('Problem connecting to SoundCloud client, error '+str(e)+'. Trying again... attempt '+str(count)+' of '+str(max_attempts))
+            print('Problem connecting to SoundCloud client, error '+str(e)+' for request '+request+'. Trying again... attempt '+str(count)+' of '+str(max_attempts))
     if (not(success)):
         print('***Unable to retrieve information from SoundCloud for the request: '+request)
     request_count = request_count+count+1
     if (request_count>=25):   # every 25 times we request data from SoundCloud, pause (to avoid overloading the server)
-        time.sleep((5*time_delay))
+        #print('pausing after '+str(request_count)+' requests made') # TODO remove
+        time.sleep(time_delay)
         request_count = 0
+        #print('finished pausing') # TODO remove
     return result
 
 def lower_case_str(inputText):
@@ -293,8 +296,9 @@ def get_new_snowball_sample(sample_size=500, desired_seed_users=set(), batch_siz
         else: 
             print(str(len(data.user_ids_collected))+'/'+str(sample_size)+' total users collected so far. Collecting the next batch of '+str(num_still_to_collect)+' users')
             batch_data_collection(data, num_still_to_collect)  
-	    print('Pausing for '+str(pause_between_batches)+' seconds. You can interrupt data collection now by pressing Ctrl-C')
-        print('User ids collected: '+str(data.user_ids_collected))
+	    
+        print('Pausing for '+str(pause_between_batches)+' seconds. You can interrupt data collection now by pressing Ctrl-C')
+        # print('User ids collected: '+str(data.user_ids_collected))
 	    # this is the time window when we can interrupt batch_data_collection 
 	    # NB I've chosen 10 seconds sleep, slightly arbitrarily, based on experiments so far
         time.sleep(pause_between_batches) # wait 10 seconds to give the server a break
@@ -340,7 +344,7 @@ def batch_data_collection(data, batch_size):
         potential_new_seed_user = 0 # init dummy value
         while ((len(data.user_ids_to_collect) > 0) and not(seed_user_found)):
             potential_new_seed_user = data.user_ids_to_collect.pop()
-            # check data hasn't already been collected for this new seed user
+            # check data hasn't already been collected for this new seed user (just in case)
             seed_user_found = not(potential_new_seed_user in data.user_ids_collected)
             # (if it has been, go round the inner while loop again till either 
             # there are no more user_ids_to_collect or till a new seed user has been found 
@@ -374,6 +378,38 @@ def batch_data_collection(data, batch_size):
     # done
     
 
+def deal_with_new_user(data, user_id):
+    ''' Check to see if we have already collected data on this user in previous data collection,
+        or if we are already planning to collect data on this user. 
+        If neither of these cases are true, add the user's id to the set of 
+        user ids to be collected in future data_collection '''
+    # Check, user_id can't be in either list
+    if (not(user_id in data.user_ids_to_collect) and not(user_id in data.user_ids_collected)):
+        data.user_ids_to_collect.add(user_id)
+        
+def deal_with_new_track(data, track_id, track_object=None):        
+    ''' Check to see if we have already collected data on this track in previous data collection.
+        If we haven't collected this data already, collect it and add to the tracks data '''
+    # check to see if we have already collected the track in previous data collection
+    if (not(track_id in data.track_ids_collected)):
+        if (track_object==None):   # get the track, if we haven't already gotten it from API
+            track_object = client_get('/tracks/'+str(track_id))
+        data.tracks.add(track_object)
+        data.track_ids_collected.add(track_id)
+        # add track_producer_id to user_ids_to_collect
+        deal_with_new_user(data, track_object.user_id)
+    
+def deal_with_new_comment(data, comment):
+    ''' Check to see if we have already collected data on this comment in previous data collection.
+        If we haven't collected this data already, collect it and add to the comments data '''
+    if (not(comment.id in data.comment_ids_collected)):
+        data.comments.add(comment)
+        # add comment id to comment_ids_collected
+        data.comment_ids_collected.add(comment.id)
+        # collect user id and add to user_ids_to_be_collected if not already collected
+        deal_with_new_user(data, comment.user_id)
+    # else do nothing, comment already collected and process
+
 
 def collect_follows_and_followers_data(data, user):
     '''collect ids of all users that our seed user follows: 
@@ -385,22 +421,20 @@ def collect_follows_and_followers_data(data, user):
     '''
     # collect ids of all users that our seed user follows 
     # (all 'followings' of a user, in SC speak)    
-    followings = get_all_followings(user)
+    followings = client_get('/users/'+str(user)+'/followings')
     for following in followings:
         # construct follows relationship tuple for each following (seed_id, followed_user_id)
         data.x_follows_y.add((user, following.id))
         # Add the followed user to add ids to user_ids_to_collect (if not already collected) 
-        if (not(following.id in data.user_ids_collected)):
-            data.user_ids_to_collect.add(following.id)
+        deal_with_new_user(data, following.id)
             
     # then collect ids of all users that follow our seed user: 
-    followers = get_all_followers(user)
+    followers = client_get('/users/'+str(user)+'/followers')
     for follower in followers:
         # construct follows relationship tuple for each follow (follower_user_id, seed_id)
         data.x_follows_y.add((follower.id, user))
         # add the follower user to user_ids_to_collect (if not already collected)
-        if (not(follower.id in data.user_ids_collected)):
-            data.user_ids_to_collect.add(follower.id)
+        deal_with_new_user(data, follower.id)
       
 
     
@@ -420,28 +454,12 @@ def collect_favourited_tracks_data(data, user):
         deal_with_new_track(data, str(fave.id))
 
         
-def deal_with_new_track(data, track_id, track_object=None):        
-    if (not(track_id in data.track_ids_collected)):
-        print('TODO duplicate track found: track id '+str(track_id)) 
-        # TODO we want to collect the most up-to-date one 
-        # as tracks are dynamic objects, but for now, just don't collect new data
-        # data.tracks.remove(track)
-    else:
-        if (track_object==None):   # get the track, if we haven't already gotten it from API
-            track_object = client_get('/tracks/'+str(track_id))
-        data.tracks.add(track_object)
-        data.track_ids_collected.add(track_id)
-        # add track_producer_id to user_ids_to_collect
-        data.user_ids_to_collect.add(track_object.user_id) # any duplicate user ids will be removed by the set mechanisms
-
         
 def collect_groups_data(data, user): 
     ''' collect all the user's groups
-		construct tuple (seed_id, group_id, group_name)
+		construct tuple (seed_user_id, group_id) for group_mem table
+		add group to the groups table
     '''
-######################## TODO NB a group is created by a user. 
-######################## Is joining a group a measure of influence of the *creator* of the group?
-######################## If so, add group_creator_id to tuple and to user_ids_to_collect
 ######################## We can get this information about groups:
 ######################## [u'permalink', u'members_count', u'name', u'track_count', u'creator', 
 ########################  u'artwork_url', u'created_at', u'kind', u'uri', u'moderated', 
@@ -452,8 +470,16 @@ def collect_groups_data(data, user):
     user_groups = client_get('/users/'+str(user)+'/groups')
     # construct tuple (seed_id, group_id, group_name)
     for group in user_groups:
-        data.groups.add((user, group.id, group.name))
-
+        # NB a group is created by a user. 
+        # So we add group_creator_id to user_ids_to_collect and collect info on the group
+        # joining a group could be a measure of influence of the *creator* of the group
+        # NB Some groups don't have a creator - check
+        if (not(group.creator == None)): 
+            deal_with_new_user(data, group.creator['id'])
+        data.group_mem.add((user, group.id))
+        if (not(group.id in data.group_ids_collected)):
+            data.groups.add(group)
+            data.group_ids_collected.add(group.id)
 
  
 def collect_produced_tracks_data(data, user):
@@ -472,22 +498,10 @@ def collect_produced_tracks_data(data, user):
         # collect all comments made on seed user's tracks
         # NB Comments aren't dynamic in the same way as tracks, 
         # so we don't need to be so vigilant about collecting the most up to date version
-        comments_on_track = client_get('/tracks/'+str(track.id)+'comments')
+        comments_on_track = client_get('/tracks/'+str(track.id)+'/comments')
 #        for each comment collected on seed user's track:
         for comment in comments_on_track:
             deal_with_new_comment(data, comment)
-
-def deal_with_new_comment(data, comment):
-    # NB Comments aren't dynamic in the same way as tracks, 
-    # so we don't need to be so vigilant about collecting the most up to date version
-
-    if (not(comment.id in data.comment_ids_collected)):
-        data.comments.add(comment)
-        # add comment id to comment_ids_collected
-        data.comment_ids_collected.add(comment.id)
-        # collect user id and add to user_ids_to_be_collected
-        data.user_ids_to_be_collected.add(comment.user_id)
-    # else do nothing, comment already collected and process
 
 
 def collect_comments_data(data, user):
@@ -520,6 +534,7 @@ def collect_playlist_data(data, user):
             # (user_id, playlist_id,track_id, track_producer_id)
             data.playlists.add((user,playlist.id,track['id'],track['user_id']))
             deal_with_new_track(data, track['id'])
+
 
 
 
@@ -570,6 +585,7 @@ def export_data_to_SQLite():
         cursor.execute('''DROP TABLE IF EXISTS x_follows_y''')
         cursor.execute('''DROP TABLE IF EXISTS tracks''')
         cursor.execute('''DROP TABLE IF EXISTS groups''')
+        cursor.execute('''DROP TABLE IF EXISTS group_mem''')
         cursor.execute('''DROP TABLE IF EXISTS favourites''')
         cursor.execute('''DROP TABLE IF EXISTS comments''')
         cursor.execute('''DROP TABLE IF EXISTS playlists''')
@@ -660,17 +676,29 @@ def export_data_to_SQLite():
             except Exception as e:
                 print('Error adding track '+str(track.id)+' to the database: '+e.message+' '+str(e.args))
 
-        # GROUPS information about what groups users belong to 
-        print 'Creating groups table in DB....'
-        cursor.execute('''CREATE TABLE IF NOT EXISTS groups(user_id INTEGER, group_id INTEGER, PRIMARY KEY (user_id, group_id))''')
+        # GROUP_MEM information about groups memberships that users have 
+        print 'Creating group_mem table in DB....'
+        cursor.execute('''CREATE TABLE IF NOT EXISTS group_mem(user_id INTEGER, group_id INTEGER, PRIMARY KEY (user_id, group_id))''')
         print('Adding data to groups table in DB.... Total num of group memberships: '+str(len(groups)))
         for group in groups:
             try:
-                cursor.execute('''INSERT INTO groups(user_id, group_id) 
+                cursor.execute('''INSERT INTO group_mem(user_id, group_id) 
                               VALUES(?, ?)''', 
                               (group[0], group[1]))
             except Exception as e:
                 print('Error adding user '+str(group[0])+' group membership of '+str(group[1])+' to the database: '+e.message+' '+str(e.args))
+        # GROUPS information about what groups users interact with 
+        print 'Creating groups table in DB....'
+        cursor.execute('''CREATE TABLE IF NOT EXISTS groups(id INTEGER PRIMARY KEY, members_count INTEGER, name TEXT, track_count INTEGER, creator_id INTEGER, created_at TEXT, uri TEXT, moderated TEXT, short_description TEXT, contributors_count INTEGER, description TEXT)''')
+        print('Adding data to groups table in DB.... Total num of group memberships: '+str(len(groups)))
+        for group in groups:
+            try:
+                cursor.execute('''INSERT INTO group_mem(id, members_count, name, track_count, creator_id, created_at, uri, moderated, short_description, contributors_count, description) 
+                              VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''', 
+                              (group.id, group.members_count, group.name, group.track_count, group.creator['id'], group.created_at, group.uri, group.moderated, group.short_description, group.contributors_count, group.description))
+            except Exception as e:
+                print('Error adding group '+str(group.id)+' to the database: '+e.message+' '+str(e.args))
+
         # PLAYLISTS information about what tracks users add to playlists 
         # TODO  - but leave this for now
         
@@ -715,7 +743,14 @@ def export_data_to_SQLite():
         db.close()
         print('Data saved in '+dbFileName)
 
-def main(sample_size = 10): 
-    get_new_snowball_sample(sample_size, {63287951}, 2, 5)  
+def main(requested_sample_size = 10, requested_batch_size=2): 
+    print('starting')
+    seed = set()
+    seed.add(80778799)
+    sample = get_new_snowball_sample(sample_size=requested_sample_size, desired_seed_users = seed, batch_size=requested_batch_size)
+    print 'finished'  
     #printData() 
     #export_data_to_SQLite()
+
+if __name__ == '__main__':
+    main()
