@@ -8,7 +8,7 @@
 # of these do.
 
 from sqlite3 import connect
-import getSoundCloudData as gsc
+import get_soundcloud_data as gsc
 
 db_path = 'scdb.sqlite'
 

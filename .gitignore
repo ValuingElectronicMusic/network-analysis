@@ -4,16 +4,16 @@
 # exclude patterns (uncomment them if you want to use them):
 # *.[oa]
 # *~
-clientSettings.py
+client_settings.py
 #.project
 #.pydevproject
-scdb.sqlite
 time
 current_ids.bak
 scdb.sqlite.bk
 sqlite.sqdb
 test.py
 #*.pyc
+*.sqlite 
 
 # Byte-compiled / optimized / DLL files
 

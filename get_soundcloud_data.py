@@ -10,16 +10,18 @@ import random
 import soundcloud  
 #import process_scdb_data as pscd
 
-import clientSettings
+import client_settings
 import time
 import sqlite3
+
+import add_data as ad 
 
 try:   # not all Python implementations have cPickle, pickle is a slower alternative
     import cPickle as pickle
 except:
     import pickle
 db_path = 'scdb.sqlite'
-client = soundcloud.Client(client_id=clientSettings.get_client_id())
+client = soundcloud.Client(client_id=client_settings.get_client_id())
 request_count = 0
 time_delay = 3 # time delay in seconds between failed attempts
 
@@ -571,14 +573,10 @@ def backup_and_save_data(data):
 
 
 
-def export_data_to_SQLite():
-    global users
-    global x_follows_y
-    global tracks
+def export_data_to_SQLite(db_path):
     print '' # for neater display 
-    dbFileName='scdb.sqlite'
     try:
-        db = sqlite3.connect(dbFileName)
+        db = sqlite3.connect(db_path)
         cursor = db.cursor()
         # Start with fresh database
         cursor.execute('''DROP TABLE IF EXISTS users''')
@@ -741,12 +739,11 @@ def export_data_to_SQLite():
     finally:
         # Close the db connection
         db.close()
-        print('Data saved in '+dbFileName)
+        print('Data saved in '+db_path)
 
 def main(requested_sample_size = 10, requested_batch_size=2): 
     print('starting')
-    seed = set()
-    seed.add(80778799)
+    seed = set([80778799])
     sample = get_new_snowball_sample(sample_size=requested_sample_size, desired_seed_users = seed, batch_size=requested_batch_size)
     print 'finished'  
     #printData() 

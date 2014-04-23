@@ -73,7 +73,8 @@ tables = {'tracks':tracks_table_creator, 'users':users_table_creator,
 
 # Here are sets containing table names; distinguish deriv database 
 # from original.
-
+# Minor edit - declaring sets as set([...]0 rather than using curly brackets
+# for backwards compatability
 table_names = set(['tracks','users','x_follows_y','groups','favourites','comments'])
 deriv_names = set(['genres','tags','user_genres','user_tags','x_faves_work_of_y',
 'comments_corp'])
@@ -177,7 +178,7 @@ def dummy_data1():
     ph2 = placeholder()
     ph2.id = 67890
     ph2.user_id = 11102
-    return [ph1,ph2]
+    return set([ph1,ph2])  # AJ slight edit - needs to work with sets
 
 
 def dummy_data2():
@@ -187,7 +188,7 @@ def dummy_data2():
     ph2 = placeholder()
     ph2.follower = 67890
     ph2.followed = 12345
-    return [ph1,ph2]
+    return set([ph1,ph2])
 
 
 def test(db_filename,test_data,table_name):

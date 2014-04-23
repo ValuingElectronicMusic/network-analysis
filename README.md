@@ -21,8 +21,8 @@ This should be reasonably straightforward:
    and follow the steps there
     (this is currently at http://soundcloud.com/you/apps/new)
 4. You will be given a client_id once you have finished registering. 
-    Edit clientSettingsDEMO.py to enter your client_id. 
-5. Save clientSettingsDEMO.py as clientSettings.py
+    Edit client_settingsDEMO.py to enter your client_id. 
+5. Save client_settingsDEMO.py as client_settings.py
 
 Sorry for any inconvenience. We introduced this authentication step in 
 our code to prevent any malicious use of our code under our client id, to
@@ -35,9 +35,9 @@ To run the code from a Python 2.7 prompt ($)
 * To collect data from soundcloud (e.g. to collect 100 users) and 
 save this data locally in an SQLite database: 
 
-$ import getSoundCloudData as gsc 
+$ import get_soundcloud_data as gsc 
 
-$ gsc.main(100)
+$ gsc.main()
 
 Data will be stored in a local 'sqdb.sqlite' DB file
 
