@@ -14,6 +14,11 @@ import client_settings
 import time
 import sqlite3
 import logging
+import logging
+logging.basicConfig(filename='logs/log'+time.strftime('%Y%m%d-%H%M')+'.log',level=logging.DEBUG)
+logging.debug('This message should go to the log file')
+logging.info('So should this')
+logging.warning('And this, too')
 
 import add_data as ad 
 
@@ -322,7 +327,8 @@ def get_new_snowball_sample(sample_size=500, desired_seed_users=set(), batch_siz
         # NB I've chosen 10 seconds sleep, slightly arbitrarily, based on experiments so far
         time.sleep(pause_between_batches) # wait 10 seconds to give the server a break
         print 'Finished pausing, time for more data collection - please do not interrupt...'
-    print('Snowball sample fully collected with a sample size of '+str(len(data.user_ids_collected))+' users.')
+    print('Snowball sample fully collected with a sample size of '+str(len(data.user_ids_collected))+' users. Saving a copy of the data to scdb_final.sqlite')
+    export_data_to_SQLite(data,'scdb_final.sqlite')
     data.print_data_summary()
     return data # in case results are to be collected during runtime  
 
@@ -413,6 +419,18 @@ def deal_with_new_track(data, track_id, track_object=None):
     if (not(track_id in data.track_ids_collected)):
         if (track_object==None):   # get the track, if we haven't already gotten it from API
             track_object = client_get('/tracks/'+str(track_id))
+        # before saving the track to our data, we want to extract one 
+        # sub attribute of the track's attributes and add it as a top-level att.
+        # (Doing this now makes it easy to save the data to DB later)
+        # This is for the 'permalink_url' info relating to the app that 
+        # was used to create this track (if one was used)
+        if (not(track.created_with==None)):
+            try:
+                track.created_using_permalink_url = track.created_with['permalink_url']
+            except: # if this info is missing, ignore this for now 
+                pass
+                # (as any missing attributes will be dealt with later) 
+        # Now we're ready to add the new track to our data
         data.tracks.add(track_object)
         data.track_ids_collected.add(track_id)
         # add track_producer_id to user_ids_to_collect
@@ -489,13 +507,24 @@ def collect_groups_data(data, user):
     user_groups = client_get('/users/'+str(user)+'/groups')
     # construct tuple (seed_id, group_id, group_name)
     for group in user_groups:
+        data.group_mem.add((user, group.id))
         # NB a group is created by a user. 
         # So we add group_creator_id to user_ids_to_collect and collect info on the group
         # joining a group could be a measure of influence of the *creator* of the group
         # NB Some groups don't have a creator - check
         if (not(group.creator == None)): 
             deal_with_new_user(data, group.creator['id'])
-        data.group_mem.add((user, group.id))
+            # before saving the track to our data, we want to extract one 
+            # sub attribute of the track's attributes and add it as a top-level att.
+            # (Doing this now makes it easy to save the data to DB later)
+            # This is for the 'permalink_url' info relating to the app that 
+            # was used to create this track (if one was used)
+            try:
+                group.creator_id = group.creator['id']
+            except: # if this info is missing, ignore this for now 
+                pass
+                    # (as any missing attributes will be dealt with later) 
+        # Now we're ready to add the new group info to our data (if not already added)
         if (not(group.id in data.group_ids_collected)):
             data.groups.add(group)
             data.group_ids_collected.add(group.id)
@@ -584,7 +613,7 @@ def backup_and_save_data(data):
     # and 
     # pickle.dump(current_ids, open("current_ids.p", "wb"))
     
-    # TODO the next statement is currently a lie
+    export_data_to_SQLite(data, db_path)
     print('Latest snapshot of data stored in '+db_path+' database.')
 
 
@@ -592,34 +621,34 @@ def backup_and_save_data(data):
 
 
 def export_data_table(cursor, table_data, table_name):
-    print ('Creating '+table_name+' users table in DB....')
+    print ('Creating '+table_name+' table in DB....')
     ad.create_table(cursor, table_name)
     ad.insert_data(cursor, table_name, table_data)
     
 
 def export_data_to_SQLite(data, db_path):
-    print '' # for neater display 
+#    print '' # for neater display 
     try:
         db = sqlite3.connect(db_path)
         cursor = db.cursor()
         # Start with fresh database
-        cursor.execute('''DROP TABLE IF EXISTS users''')
-        cursor.execute('''DROP TABLE IF EXISTS x_follows_y''')
-        cursor.execute('''DROP TABLE IF EXISTS tracks''')
-        cursor.execute('''DROP TABLE IF EXISTS groups''')
-        cursor.execute('''DROP TABLE IF EXISTS group_mem''')
-        cursor.execute('''DROP TABLE IF EXISTS favourites''')
-        cursor.execute('''DROP TABLE IF EXISTS comments''')
-        cursor.execute('''DROP TABLE IF EXISTS playlists''')
-        
-        # TODO currently these derived tables don't exist except as empty sets
-        cursor.execute('''DROP TABLE IF EXISTS genres''')
-        cursor.execute('''DROP TABLE IF EXISTS tags''')
-        cursor.execute('''DROP TABLE IF EXISTS user_genres''')
-        cursor.execute('''DROP TABLE IF EXISTS user_tags''')
-        cursor.execute('''DROP TABLE IF EXISTS x_faves_work_of_y''') 
-        cursor.execute('''DROP TABLE IF EXISTS comments_corp''')
-        db.commit()
+#         cursor.execute('''DROP TABLE IF EXISTS users''')
+#         cursor.execute('''DROP TABLE IF EXISTS x_follows_y''')
+#         cursor.execute('''DROP TABLE IF EXISTS tracks''')
+#         cursor.execute('''DROP TABLE IF EXISTS groups''')
+#         cursor.execute('''DROP TABLE IF EXISTS group_mem''')
+#         cursor.execute('''DROP TABLE IF EXISTS favourites''')
+#         cursor.execute('''DROP TABLE IF EXISTS comments''')
+#         cursor.execute('''DROP TABLE IF EXISTS playlists''')
+#         
+#         # TODO currently these derived tables don't exist except as empty sets
+#         cursor.execute('''DROP TABLE IF EXISTS genres''')
+#         cursor.execute('''DROP TABLE IF EXISTS tags''')
+#         cursor.execute('''DROP TABLE IF EXISTS user_genres''')
+#         cursor.execute('''DROP TABLE IF EXISTS user_tags''')
+#         cursor.execute('''DROP TABLE IF EXISTS x_faves_work_of_y''') 
+#         cursor.execute('''DROP TABLE IF EXISTS comments_corp''')
+#         db.commit()
 
         export_data_table(cursor, data.users, 'users')
         export_data_table(cursor, data.x_follows_y, 'x_follows_y')
@@ -673,4 +702,4 @@ def main(requested_sample_size = 10, requested_batch_size=2):
     #export_data_to_SQLite()
 
 if __name__ == '__main__':
-    main()
+    main(requested_sample_size=0)

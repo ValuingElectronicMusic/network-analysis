@@ -35,7 +35,7 @@ isrc TEXT, video_url TEXT, artwork_url TEXT,
 waveform_url TEXT, stream_url TEXT, attachments_uri TEXT,
 playback_count INTEGER, download_count INTEGER, 
 favoritings_count INTEGER, comment_count INTEGER, 
-created_at TEXT, created_with__permalink_url TEXT'''
+created_at TEXT, created_using_permalink_url TEXT'''
 
 x_follows_y_table_creator='''follower INTEGER, followed INTEGER, 
 PRIMARY KEY (follower, followed)'''
@@ -47,7 +47,7 @@ group_mem_table_creator='''user_id INTEGER, group_id INTEGER,
 PRIMARY KEY (user_id, group_id)'''
 
 groups_table_creator='''id INTEGER PRIMARY KEY, name TEXT, 
-created_at TEXT, creator__id INTEGER, moderated TEXT, 
+created_at TEXT, creator_id INTEGER, moderated TEXT, 
 short_description TEXT, description TEXT, permalink_url TEXT,  
 track_count INTEGER, members_count INTEGER, contributors_count INTEGER,  
 artwork_url TEXT'''
@@ -141,7 +141,22 @@ def obj_atts_list(obj, att_lst):
     l = []
     for att in att_lst:
         # AJ added
-        # Some attributes are not plain attributes but are  
+        # Some attributes are not plain attributes but are themselves
+        # specific sub-attributes of a attribute_dict
+        # As shorthand, these are indicated in the _table_creator fields
+        # using a double underscore __ . 
+        # Find and deal with retrieving these data separately  
+#         if ('__' in att):
+#             att_rep = att.replace('__', ',')
+#              split att around the '__' divider
+#             att_rep_spl = [a.strip() for a in att_rep.split(',')]
+#             try:
+#                 container_dict = getattr(obj,att_rep_spl[0])
+#                 l.append(container_dict.get(att_rep_spl[1],None))
+#                  
+#             except AttributeError:
+#                 l.append(None)
+#         else:
         try:
             l.append(getattr(obj,att))
         except AttributeError:
