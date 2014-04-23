@@ -11,41 +11,56 @@ import re
 # Strings used for creating tables. As before, column names are names
 # of attributes in SoundCloud data objects. For convenience, these are
 # wrapped up in a dictionary.
-
-tracks_table_creator='''id INTEGER PRIMARY KEY, user_id INTEGER, title TEXT,
-permalink_url TEXT,  track_type TEXT, state TEXT, created_at TEXT,
-original_format TEXT, description TEXT, sharing TEXT,
-genre TEXT, duration INTEGER, key_signature TEXT, bpm INTEGER,
-license TEXT, label_name TEXT,
-favoritings_count INTEGER,
-streamable TEXT, stream_url TEXT,
-downloadable TEXT, download_count INTEGER,
-commentable TEXT,
-purchase_url TEXT, artwork_url TEXT, video_url TEXT, embeddable_by TEXT,
-release TEXT, release_month INTEGER, release_day INTEGER, release_year INTEGER,
-tag_list TEXT'''
+#
+# For definitions of column names, see:
+#     http://developers.soundcloud.com/docs/api/reference
 
 users_table_creator='''id INTEGER PRIMARY KEY, username TEXT, 
-permalink_url TEXT, full_name TEXT, description TEXT,  
+first_name TEXT, last_name TEXT, full_name TEXT, 
+permalink_url TEXT, description TEXT, plan TEXT, 
 city TEXT, country TEXT, 
-track_count INTEGER, playlist_count INTEGER, 
-followers_count INTEGER, followings_count INTEGER, 
-public_favorites_count INTEGER'''
+track_count INTEGER, playlist_count INTEGER, public_favorites_count INTEGER, 
+followers_count INTEGER, followings_count INTEGER,
+website TEXT, website_title TEXT, 
+avatar_url TEXT, discogs_name TEXT, myspace_name TEXT, subscriptions TEXT'''
+
+tracks_table_creator='''id INTEGER PRIMARY KEY, user_id TEXT,  
+title TEXT, permalink_url TEXT, description TEXT, tag_list TEXT, state TEXT,
+duration INTEGER, genre TEXT,  key_signature TEXT, bpm INTEGER,  
+original_content_size INTEGER, original_format TEXT, track_type TEXT,    
+sharing TEXT, streamable TEXT, embeddable_by TEXT, downloadable TEXT, commentable TEXT,
+release INTEGER, release_year INTEGER, release_month INTEGER, release_day INTEGER,
+purchase_title TEXT, purchase_url TEXT, label_id TEXT, label_name TEXT, license TEXT, 
+isrc TEXT, video_url TEXT, artwork_url TEXT, 
+waveform_url TEXT, stream_url TEXT, attachments_uri TEXT,
+playback_count INTEGER, download_count INTEGER, 
+favoritings_count INTEGER, comment_count INTEGER, 
+created_at TEXT, created_with__permalink_url TEXT'''
 
 x_follows_y_table_creator='''follower INTEGER, followed INTEGER, 
 PRIMARY KEY (follower, followed)'''
 
-groups_table_creator='''user_id INTEGER, group_id INTEGER, 
+favourites_table_creator='''user_id INTEGER, track_id INTEGER, track_producer_id INTEGER, 
+PRIMARY KEY (user_id, track_id)'''
+
+group_mem_table_creator='''user_id INTEGER, group_id INTEGER, 
 PRIMARY KEY (user_id, group_id)'''
 
-favourites_table_creator='''user INTEGER, track INTEGER, 
-PRIMARY KEY (user, track)'''
+groups_table_creator='''id INTEGER PRIMARY KEY, name TEXT, 
+created_at TEXT, creator__id INTEGER, moderated TEXT, 
+short_description TEXT, description TEXT, permalink_url TEXT,  
+track_count INTEGER, members_count INTEGER, contributors_count INTEGER,  
+artwork_url TEXT'''
 
-comments_table_creator='''id INTEGER PRIMARY KEY,
-body TEXT, user_id INTEGER, track_id INTEGER, 
-timestamp INTEGER, created_at TEXT'''
+comments_table_creator='''id INTEGER PRIMARY KEY, user_id INTEGER, track_id INTEGER, 
+body TEXT, timestamp INTEGER, created_at TEXT, uri TEXT'''
+      
+playlists_table_creator='''user_id INTEGER, playlist_id INTEGER, track_id INTEGER, 
+track_producer_id INTEGER, PRIMARY KEY(playlist_id, track_id)'''
+
 
 # The following table creators are for the _deriv database.
+# TODO AJ: I think this should go somewhere separate? Not currently used?
 
 gentag_table_creator='''string TEXT PRIMARY KEY, frequency INTEGER,
 rank INTEGER'''
@@ -64,8 +79,9 @@ track_genre TEXT, track_tag_list TEXT, language TEXT, datetime TEXT, filtered_te
 # Here's the dictionary containing all the table creators.
 
 tables = {'tracks':tracks_table_creator, 'users':users_table_creator, 
-'x_follows_y':x_follows_y_table_creator, 'groups':groups_table_creator,
-'favourites':favourites_table_creator, 'comments':comments_table_creator,
+'x_follows_y':x_follows_y_table_creator, 'favourites':favourites_table_creator, 
+'group_mem':group_mem_table_creator, 'groups':groups_table_creator,   
+'comments':comments_table_creator, 'playlists':playlists_table_creator,
 'genres':gentag_table_creator, 'tags':gentag_table_creator,
 'user_genres':user_gentag_table_creator, 'user_tags':user_gentag_table_creator,
 'x_faves_work_of_y':x_faves_work_of_y_table_creator,
@@ -75,9 +91,8 @@ tables = {'tracks':tracks_table_creator, 'users':users_table_creator,
 # from original.
 # Minor edit - declaring sets as set([...]0 rather than using curly brackets
 # for backwards compatability
-table_names = set(['tracks','users','x_follows_y','groups','favourites','comments'])
-deriv_names = set(['genres','tags','user_genres','user_tags','x_faves_work_of_y',
-'comments_corp'])
+table_names = set(['tracks','users','x_follows_y','groups','group_mem','favourites','comments','playlists'])
+deriv_names = set(['genres','tags','user_genres','user_tags','x_faves_work_of_y','comments_corp'])
 
 
 # Generalised function for creating each of the tables we need, using
@@ -105,8 +120,8 @@ def create_tables(db_filename):
 # Functions for turning table-creating string (above) into string
 # of column names
 
-def att_string(str):
-    return re.sub(r'\n|[A-Z]|\(.*?\)','',str).strip(', ')
+def att_string(strng):
+    return re.sub(r'\n|[A-Z]|\(.*?\)','',strng).strip(', ')
 
 
 # Function for turning string of column names into list of column names
@@ -125,6 +140,8 @@ def att_list(att_str):
 def obj_atts_list(obj, att_lst):
     l = []
     for att in att_lst:
+        # AJ added
+        # Some attributes are not plain attributes but are  
         try:
             l.append(getattr(obj,att))
         except AttributeError:

@@ -41,6 +41,9 @@ $ gsc.main()
 
 Data will be stored in a local 'sqdb.sqlite' DB file
 
+---------------
+
+FOR SMALL SAMPLES: 
 * To analyse pre-collected soundcloud data (in sqdb.sqlite DB file), 
 generating 3 separate measures of influence and graph diagrams:
 
@@ -50,3 +53,4 @@ $ scna.demonstrate()
 
 Measures of influence will be output to the screen and graphs
 will be stored locally as .png files
+NB This code has only been shown to work with samples of 500 users or less

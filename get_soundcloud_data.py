@@ -13,6 +13,7 @@ import soundcloud
 import client_settings
 import time
 import sqlite3
+import logging
 
 import add_data as ad 
 
@@ -23,7 +24,7 @@ except:
 db_path = 'scdb.sqlite'
 client = soundcloud.Client(client_id=client_settings.get_client_id())
 request_count = 0
-time_delay = 3 # time delay in seconds between failed attempts
+time_delay = 2 # time delay in seconds between failed attempts
 
 def get_table(table_name):
     '''Returns a set of the contents of one entire table from the sqlite database.'''
@@ -72,7 +73,15 @@ class SC_data():
         self.comments = get_table('comments')
         # playlists - set of SoundCloud users' playlisted tracks
         self.playlists = get_table('playlists')
-       
+        
+        # The following table creators are for the _deriv database.
+        self.genres = get_table('genres')
+        self.tags = get_table('tags')
+        self.user_genres = get_table('user_genres')
+        self.user_tags = get_table('user_tags')
+        self.x_faves_work_of_y = get_table('x_faves_work_of_y')
+        self.comments_corp = get_table('comments_corp')
+   
         print '2. unpickling FURTHER DATA'
         # FURTHER DATA 
         # For various SoundCloud data (especially SoundCloud objects), 
@@ -107,18 +116,26 @@ class SC_data():
               str(len(self.groups))+' groups, '+
               str(len(self.group_mem))+' group memberships, '+
               str(len(self.users))+' comments, '+
-              str(len(self.playlists))+' playlists.')
+              str(len(self.playlists))+' playlisted tracks.')
+        print('Derived data: '+
+              str(len(self.genres))+' genres'+
+              str(len(self.tags))+' tags'+
+              str(len(self.user_genres))+' user genres'+
+              str(len(self.user_tags))+' user tags'+
+              str(len(self.x_faves_work_of_y))+' x_faves_work_of_y'+ 
+              str(len(self.comments_corp))+' in comments corpus')
 
-def peek_at_collection(collection_being_peeked, max=5):
+
+def peek_at_collection(collection_being_peeked, maximum=5):
     if (len(collection_being_peeked)==0):
         print('This data collection is empty')
     else: 
-        print('Here is a list of (max) '+str(max)+' members of the collection (with '+str(len(collection_being_peeked))+' members):')
+        print('Here is a list of (maximum) '+str(maximum)+' members of the collection (with '+str(len(collection_being_peeked))+' members):')
         count=0;
         for n in collection_being_peeked:
             count = count+1
             print(str(count)+': '+str(n))
-            if (count>=max):
+            if (count>=maximum):
                 break
 
     
@@ -298,11 +315,11 @@ def get_new_snowball_sample(sample_size=500, desired_seed_users=set(), batch_siz
         else: 
             print(str(len(data.user_ids_collected))+'/'+str(sample_size)+' total users collected so far. Collecting the next batch of '+str(num_still_to_collect)+' users')
             batch_data_collection(data, num_still_to_collect)  
-	    
+    
         print('Pausing for '+str(pause_between_batches)+' seconds. You can interrupt data collection now by pressing Ctrl-C')
         # print('User ids collected: '+str(data.user_ids_collected))
-	    # this is the time window when we can interrupt batch_data_collection 
-	    # NB I've chosen 10 seconds sleep, slightly arbitrarily, based on experiments so far
+        # this is the time window when we can interrupt batch_data_collection 
+        # NB I've chosen 10 seconds sleep, slightly arbitrarily, based on experiments so far
         time.sleep(pause_between_batches) # wait 10 seconds to give the server a break
         print 'Finished pausing, time for more data collection - please do not interrupt...'
     print('Snowball sample fully collected with a sample size of '+str(len(data.user_ids_collected))+' users.')
@@ -573,7 +590,14 @@ def backup_and_save_data(data):
 
 
 
-def export_data_to_SQLite(db_path):
+
+def export_data_table(cursor, table_data, table_name):
+    print ('Creating '+table_name+' users table in DB....')
+    ad.create_table(cursor, table_name)
+    ad.insert_data(cursor, table_name, table_data)
+    
+
+def export_data_to_SQLite(data, db_path):
     print '' # for neater display 
     try:
         db = sqlite3.connect(db_path)
@@ -587,145 +611,43 @@ def export_data_to_SQLite(db_path):
         cursor.execute('''DROP TABLE IF EXISTS favourites''')
         cursor.execute('''DROP TABLE IF EXISTS comments''')
         cursor.execute('''DROP TABLE IF EXISTS playlists''')
-        db.commit()
-        print 'Creating users table in DB....'
-        # Check if table users does not exist and create it
-        cursor.execute('''CREATE TABLE IF NOT EXISTS users(id INTEGER PRIMARY KEY, username TEXT, 
-                             permalink_url TEXT, full_name TEXT, description TEXT,  
-                             city TEXT, country TEXT, 
-                             track_count INTEGER, playlist_count INTEGER, 
-                             followers_count INTEGER, followings_count INTEGER, public_favorites_count INTEGER)''')
-        print('Adding data to users table in DB.... Total num of users: '+str(len(users)))
-        for user in users:
-            try:
-                cursor.execute('''INSERT INTO users(id, username,
-                             permalink_url, full_name, description,  
-                             city, country,
-                             track_count, playlist_count, 
-                             followers_count, followings_count, public_favorites_count) 
-                             VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''', 
-                             (user.id, user.username, 
-                              user.permalink_url, user.full_name, user.description, 
-                              user.city, user.country, 
-                              user.track_count, user.playlist_count, 
-                              user.followers_count, user.followings_count, user.public_favorites_count))
-            except Exception as e:
-                print('Error adding user '+str(user.id)+' to the database: '+e.message+' '+str(e.args))
-        # X FOLLOWS Y set of tuples (follower.id, followed.id) 
-        print 'Creating x_follows_y table in DB....'
-        cursor.execute('''CREATE TABLE IF NOT EXISTS x_follows_y(follower INTEGER, followed INTEGER, PRIMARY KEY (follower, followed))''')
-        print('Adding data to x_follows_y table in DB.... Total num of follows_rels: '+str(len(x_follows_y)))
-        for follow in x_follows_y:
-#            print('Inserting '+str(follow[0])+' follows '+str(follow[1])+' into the database. Total num of follows_rels: '+str(len(x_follows_y)))
-            try:
-                cursor.execute('''INSERT INTO x_follows_y(follower, followed) 
-                              VALUES(?, ?)''', 
-                              (follow[0], follow[1]))
-            except Exception as e:
-                print('Error adding ['+str(follow[0])+' follows '+str(follow[1])+'] to the database: '+e.message+' '+str(e.args))
-        # TRACKS
-        #issue with label_id? label_id field removed (can use 'label_name' to detect existence of a label)
-        # issue with playback_count? playback_count removed 
-        print 'Creating tracks table in DB....'
-        cursor.execute('''CREATE TABLE IF NOT EXISTS tracks(
-        id INTEGER PRIMARY KEY, user_id INTEGER, title TEXT,   
-        permalink_url TEXT,  track_type TEXT, state TEXT, created_at TEXT, 
-        original_format TEXT, description TEXT, sharing TEXT,   
-        genre TEXT, duration INTEGER, key_signature TEXT, bpm INTEGER, 
-        license TEXT, label_name TEXT, 
-        favoritings_count INTEGER, 
-        streamable TEXT, stream_url TEXT, 
-        downloadable TEXT, download_count INTEGER, 
-        commentable TEXT,
-        purchase_url TEXT, artwork_url TEXT, video_url TEXT, embeddable_by TEXT,
-        release TEXT, release_month INTEGER, release_day INTEGER, release_year INTEGER,  
-        tag_list TEXT)''')   
-        print('Adding data to tracks table in DB..... Total num of tracks: '+str(len(tracks)))
-        for track in tracks:
-            try:
-                cursor.execute('''INSERT INTO tracks(id, user_id, title,   
-        permalink_url,  track_type, state, created_at, 
-        original_format, description, sharing,   
-        genre, duration, key_signature, bpm, 
-        license, label_name,
-        favoritings_count, 
-        streamable, stream_url, 
-        downloadable, download_count, 
-        commentable, 
-        purchase_url, artwork_url, video_url, embeddable_by,
-        release, release_month, release_day, release_year,  
-        tag_list)  
-            VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 
-                   ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 
-                   ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 
-                   ?)''',
-                (track.id, track.user_id, track.title,   
-                track.permalink_url, track.track_type, track.state, track.created_at, 
-                track.original_format, track.description, track.sharing,   
-                track.genre, track.duration, track.key_signature, track.bpm, 
-                track.license, track.label_name,
-                track.favoritings_count, 
-                track.streamable, track.stream_url, 
-                track.downloadable, track.download_count, 
-                track.commentable, 
-                track.purchase_url, track.artwork_url, track.video_url, track.embeddable_by,
-                track.release, track.release_month, track.release_day, track.release_year,  
-                track.tag_list)) 
-            except Exception as e:
-                print('Error adding track '+str(track.id)+' to the database: '+e.message+' '+str(e.args))
-
-        # GROUP_MEM information about groups memberships that users have 
-        print 'Creating group_mem table in DB....'
-        cursor.execute('''CREATE TABLE IF NOT EXISTS group_mem(user_id INTEGER, group_id INTEGER, PRIMARY KEY (user_id, group_id))''')
-        print('Adding data to groups table in DB.... Total num of group memberships: '+str(len(groups)))
-        for group in groups:
-            try:
-                cursor.execute('''INSERT INTO group_mem(user_id, group_id) 
-                              VALUES(?, ?)''', 
-                              (group[0], group[1]))
-            except Exception as e:
-                print('Error adding user '+str(group[0])+' group membership of '+str(group[1])+' to the database: '+e.message+' '+str(e.args))
-        # GROUPS information about what groups users interact with 
-        print 'Creating groups table in DB....'
-        cursor.execute('''CREATE TABLE IF NOT EXISTS groups(id INTEGER PRIMARY KEY, members_count INTEGER, name TEXT, track_count INTEGER, creator_id INTEGER, created_at TEXT, uri TEXT, moderated TEXT, short_description TEXT, contributors_count INTEGER, description TEXT)''')
-        print('Adding data to groups table in DB.... Total num of group memberships: '+str(len(groups)))
-        for group in groups:
-            try:
-                cursor.execute('''INSERT INTO group_mem(id, members_count, name, track_count, creator_id, created_at, uri, moderated, short_description, contributors_count, description) 
-                              VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''', 
-                              (group.id, group.members_count, group.name, group.track_count, group.creator['id'], group.created_at, group.uri, group.moderated, group.short_description, group.contributors_count, group.description))
-            except Exception as e:
-                print('Error adding group '+str(group.id)+' to the database: '+e.message+' '+str(e.args))
-
-        # PLAYLISTS information about what tracks users add to playlists 
-        # TODO  - but leave this for now
         
-        # FAVOURITES information about what tracks a user Likes
-        print 'Creating favourites table in DB....'
-        cursor.execute('''CREATE TABLE IF NOT EXISTS favourites(user INTEGER, track INTEGER, PRIMARY KEY (user, track))''')
-        print('Adding data to favourites table in DB.... Total num of favourite entries: '+str(len(favourites)))
-        for favourite in favourites:
-            try:
-                cursor.execute('''INSERT INTO favourites(user, track) 
-                              VALUES(?, ?)''', 
-                              (favourite[0], favourite[1]))
-            except Exception as e:
-                print('Error adding user '+str(favourite[0])+' favouriting track '+str(favourite[1])+' to the database: '+e.message+' '+str(e.args))
-        # COMMENTS information about what comments a user makes on tracks
-        # (restricted to the tracks produced by users in the sample)
-        print 'Creating comments table in DB....'
-        cursor.execute('''CREATE TABLE IF NOT EXISTS comments(id INTEGER PRIMARY KEY,
-        body TEXT, user_id INTEGER, track_id INTEGER, 
-        timestamp INTEGER, created_at TEXT)''')
-        print('Adding data to comments table in DB.... Total num of comment entries: '+str(len(comments)))
-        for comment in comments:
-            try:
-                cursor.execute('''INSERT INTO comments(id, body, user_id, track_id, timestamp, created_at) 
-                              VALUES(?, ?, ?, ?, ?, ?)''', 
-                              (comment.id, comment.body, comment.user_id, comment.track_id, 
-                               comment.timestamp, comment.created_at))
-            except Exception as e:
-                print('Error adding user comment '+str(comment.id)+' to the database: '+e.message+' '+str(e.args))
+        # TODO currently these derived tables don't exist except as empty sets
+        cursor.execute('''DROP TABLE IF EXISTS genres''')
+        cursor.execute('''DROP TABLE IF EXISTS tags''')
+        cursor.execute('''DROP TABLE IF EXISTS user_genres''')
+        cursor.execute('''DROP TABLE IF EXISTS user_tags''')
+        cursor.execute('''DROP TABLE IF EXISTS x_faves_work_of_y''') 
+        cursor.execute('''DROP TABLE IF EXISTS comments_corp''')
+        db.commit()
+
+        export_data_table(cursor, data.users, 'users')
+        export_data_table(cursor, data.x_follows_y, 'x_follows_y')
+        export_data_table(cursor, data.tracks, 'tracks')
+        export_data_table(cursor, data.groups, 'groups')
+        export_data_table(cursor, data.group_mem, 'group_mem')
+        export_data_table(cursor, data.favourites, 'favourites')
+        export_data_table(cursor, data.comments, 'comments')
+        export_data_table(cursor, data.playlists, 'playlists')
+        
+        # TODO currently included for completeness 
+        # though the tables are only going to be empty sets at present
+        export_data_table(cursor, data.genres, 'genres')
+        export_data_table(cursor, data.tags, 'tags')
+        export_data_table(cursor, data.user_genres, 'user_genres')
+        export_data_table(cursor, data.user_tags, 'user_tags')
+        export_data_table(cursor, data.x_faves_work_of_y, 'x_faves_work_of_y')
+        export_data_table(cursor, data.comments_corp, 'comments_corp')
+         
+#         for group in groups:
+#             try:
+#                 cursor.execute('''INSERT INTO group_mem(id, members_count, name, track_count, creator_id, created_at, uri, moderated, short_description, contributors_count, description) 
+#                               VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''', 
+#                               (group.id, group.members_count, group.name, group.track_count, group.creator['id'], group.created_at, group.uri, group.moderated, group.short_description, group.contributors_count, group.description))
+#             except Exception as e:
+#                 print('Error adding group '+str(group.id)+' to the database: '+e.message+' '+str(e.args))
+
+
         print 'Ready to commit DB to file'
         db.commit()
     # Catch the exception
@@ -740,6 +662,7 @@ def export_data_to_SQLite(db_path):
         # Close the db connection
         db.close()
         print('Data saved in '+db_path)
+
 
 def main(requested_sample_size = 10, requested_batch_size=2): 
     print('starting')
