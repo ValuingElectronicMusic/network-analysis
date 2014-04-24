@@ -182,7 +182,8 @@ def insert_tuple_data_set_into_DB(cursor,table_name,data):
         try:
             cursor.execute(sql,datum)
         except sqlite3.IntegrityError:
-            pass
+            return False
+    return True # successful if reached this stage
 
 def insert_SC_data_into_DB(cursor,table_name,data):
     att_str=att_string(tables[table_name])
@@ -194,8 +195,8 @@ def insert_SC_data_into_DB(cursor,table_name,data):
         try:
             cursor.execute(sql,vals)
         except sqlite3.IntegrityError:
-            pass
-
+            return False
+    return True # successful if reached this stage
 
 # AJ added 
 def convert_soundcloud_resource_for_data(new_entry,table_name):

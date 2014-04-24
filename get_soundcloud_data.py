@@ -7,6 +7,7 @@ Created on Feb 25, 2014
 # TODO log errors plus calls to client get in external log files 
 
 import random
+import shutil
 import soundcloud  
 #import process_scdb_data as pscd
 
@@ -36,7 +37,7 @@ request_count = 0
 time_delay = 2 # time delay in seconds between failed attempts
 
 last_backup_time = int(time.time()) # initial value
-time_between_backups_secs = 86400
+time_between_backups_secs = 3600 # TODO RESET after testing 86400 seconds = 24 hours, 3600 = 1 hour
 
 def get_table(table_name, db_path):
     '''Returns a set of the contents of one entire table from the sqlite database.'''
@@ -326,7 +327,7 @@ def client_get(request, max_attempts=100):
         logging.warning('ERROR in client_get() - ***Unable to retrieve information from SoundCloud for the request: '+request)         
         print('***Unable to retrieve information from SoundCloud for the request: '+request)
     request_count = request_count+count+1
-    if (request_count>=30):   # every 30 times we request data from SoundCloud, pause (to avoid overloading the server)
+    if (request_count>=50):   # every 50 times we request data from SoundCloud, pause (to avoid overloading the server)
         time.sleep(time_delay)
         request_count = 0
     return result
@@ -362,15 +363,34 @@ def get_new_snowball_sample(sample_size=500, desired_seed_users=set(), batch_siz
     and give the path to the database file as a string (can be relative path). e.g. db_to_add_data_from = 'scdb.sqlite'  '''
     logging.info('Collecting a new snowball sample of size '+str(sample_size)+' in batches of '
                  +str(batch_size)+' with '+str(pause_between_batches)
-                 +' pause between batches and seed_users set of '+str(desired_seed_users)+' and existing data from DB table '+db_to_add_data_from)         
+                 +' pause between batches and seed_users set of '+str(desired_seed_users)+' and existing data from DB table '+str(db_to_add_data_from))         
     
     
     # initialise data_holder
     data = SC_data(db_to_add_data_from)
 
     # Perform initial data import
-    current_db_path = 'scdb'+time.strftime('%Y%m%d-%h%m')+'current.sqlite'
+    current_db_path = 'scdb'+time.strftime('%Y%m%d-%H%M')+'current.sqlite'
     export_data_to_db_and_pickle(data, current_db_path)
+    
+    # initialise backup copies (with direct copies for now, will be overwritten during backups)
+    # Backup will operate on a grandfather-father-son basis:
+    # current (son)  = the most recent backup
+    # father = the second most recent backup
+    # grandfather = the third most recent backup
+    # in total, three current generations of backups will be kept
+    # Every 24 hours, a separate snapshot will also be taken of the current data and metadata collected
+    father_db_path = current_db_path.replace('current','father')
+    grandfather_db_path = current_db_path.replace('current','grandfather')
+    shutil.copy(current_db_path, father_db_path)
+    shutil.copy(current_db_path, grandfather_db_path)
+    
+    current_pickle_path = convert_db_to_pickle_path(current_db_path)
+    father_pickle_path = current_pickle_path.replace('current','father')
+    grandfather_pickle_path = current_pickle_path.replace('current','grandfather')
+    shutil.copy(current_pickle_path, father_pickle_path)
+    shutil.copy(current_pickle_path, grandfather_pickle_path)
+    
     global last_backup_time 
     last_backup_time = int(time.time())  # now we are setting the last backup time properly
 
@@ -388,17 +408,17 @@ def get_new_snowball_sample(sample_size=500, desired_seed_users=set(), batch_siz
             print(str(len(data.user_ids_collected))+'/'+str(sample_size)+' total users collected so far. Collecting the next batch of '+str(num_still_to_collect)+' users')
             batch_data_collection(data, num_still_to_collect, current_db_path)  
     
-        print('Pausing for '+str(pause_between_batches)+' seconds. You can terminate data collection at this time by pressing Ctrl-C')
-        # print('User ids collected: '+str(data.user_ids_collected))
-        # this is the time window when we can interrupt batch_data_collection 
-        # NB I've chosen 10 seconds sleep, slightly arbitrarily, based on experiments so far
-        time.sleep(pause_between_batches) # wait 10 seconds to give the server a break
-        print 'Finished pausing, time for more data collection - please do not interrupt it now...'
+        if (len(data.user_ids_collected)<sample_size):
+            print('Pausing for '+str(pause_between_batches)+' seconds. You can terminate data collection at this time by pressing Ctrl-C')
+            # print('User ids collected: '+str(data.user_ids_collected))
+            # this is the time window when we can interrupt batch_data_collection 
+            # NB I've chosen 10 seconds sleep, slightly arbitrarily, based on experiments so far
+            time.sleep(pause_between_batches) # wait 10 seconds to give the server a break
+            print 'Finished pausing, time for more data collection - please do not interrupt it now...'
     print('Snowball sample fully collected with a sample size of '+str(len(data.user_ids_collected))+' users. Saving a copy of the data to scdb_FINAL.sqlite')
     logging.info('Snowball sample fully collected with a sample size of '+str(len(data.user_ids_collected))+' users. Saving a copy of the data to scdb_FINAL.sqlite')
-
-    export_data_to_db_and_pickle(data,'scdb_FINAL.sqlite')
     data.print_data_summary()
+    export_data_to_db_and_pickle(data,'scdb_FINAL.sqlite')
     return data # in case results are to be collected during runtime  
 
 
@@ -469,7 +489,7 @@ def batch_data_collection(data, batch_size, db_path):
         collect_produced_tracks_data(data, seed_user_id)
         collect_comments_data(data, seed_user_id)
         collect_playlist_data(data, seed_user_id)
-        logging.info('In batch_data_collection() finished, collecting data on user '+str(seed_user_id))
+        logging.info('batch_data_collection() finished, collecting data on user '+str(seed_user_id))
         # now finished with this user, move onto the next user until 100 users collected
         # (go back to the start of the repeat loop again)
     
@@ -670,6 +690,8 @@ def pickle_ids_collected(data, pickle_path):
     current_ids['g_ids_collected'] = data.group_ids_collected 
     try:
         pickle.dump(current_ids, open(pickle_path, "wb"))  # this may throw an exception
+        logging.info('Metadata saved in '+pickle_path)         
+        print('Metadata saved in '+pickle_path)
     except Exception as e:            
         logging.warning('ERROR in pickle_ids_collected - data could not be pickled to '+pickle_path+': '+e.message+' '+str(e.args))         
                   
@@ -701,15 +723,18 @@ def backup_and_save_data(data, db_path):
         backup_db = 'scdb'+time.strftime('%Y%m%d-%H%M',time.localtime(current_time))+'BK.sqlite'
         export_data_to_db_and_pickle(data, backup_db)
         last_backup_time = current_time
-    # TODO do grandfather father son backup
+    # Do grandfather father son backup
     father_db_path = db_path.replace('current','father')
     grandfather_db_path = db_path.replace('current','grandfather')
-    # TODO cp father_db_path -> grandfather_db_path
-    # TODO cp db_path -> father_db_path
-    print('TODO backup_and_save_data')
-    # https://docs.python.org/2/library/os.html
+    shutil.copy(father_db_path, grandfather_db_path)
+    shutil.copy(db_path, father_db_path)
+    
+    father_pickle_path = pickle_path.replace('current','father')
+    grandfather_pickle_path = pickle_path.replace('current','grandfather')
+    shutil.copy(father_pickle_path, grandfather_pickle_path)
+    shutil.copy(pickle_path, father_pickle_path)
+    
      
-    # TODO add collected data to data already in son
     logging.info('Continuing backup_and_save_data() processes: 2a. Saving new data to external DB '+db_path+' and pickle file'+pickle_path)    
     export_data_to_db_and_pickle(data, db_path)
     
@@ -718,12 +743,10 @@ def backup_and_save_data(data, db_path):
 
 
 
-
-
 def export_data_table(cursor, table_data, table_name):
     logging.info('Creating '+table_name+' table in DB.')
     ad.create_table(cursor, table_name)  # creates table if not existing already
-    ad.insert_tuple_data_set_into_DB(cursor, table_name, table_data)
+    return ad.insert_tuple_data_set_into_DB(cursor, table_name, table_data)
     
 
 def export_data_to_db_and_pickle(data, db_path):
@@ -732,24 +755,39 @@ def export_data_to_db_and_pickle(data, db_path):
         db = sqlite3.connect(db_path)
         cursor = db.cursor()
 
-        export_data_table(cursor, data.users, 'users')
-        export_data_table(cursor, data.x_follows_y, 'x_follows_y')
-        export_data_table(cursor, data.tracks, 'tracks')
-        export_data_table(cursor, data.groups, 'groups')
-        export_data_table(cursor, data.group_mem, 'group_mem')
-        export_data_table(cursor, data.favourites, 'favourites')
-        export_data_table(cursor, data.comments, 'comments')
-        export_data_table(cursor, data.playlists, 'playlists')
-        
+        # Export data, and if successful, wipe the saved data clean in local memory, ready for new data
+        if (export_data_table(cursor, data.users, 'users')):
+            data.users = set()
+        if (export_data_table(cursor, data.x_follows_y, 'x_follows_y')):
+            data.x_follows_y = set()
+        if (export_data_table(cursor, data.tracks, 'tracks')):
+            data.tracks = set()
+        if (export_data_table(cursor, data.groups, 'groups')):
+            data.groups = set()
+        if (export_data_table(cursor, data.group_mem, 'group_mem')):
+            data.group_mem = set()
+        if (export_data_table(cursor, data.favourites, 'favourites')):
+            data.favourites = set()
+        if (export_data_table(cursor, data.comments, 'comments')):
+            data.comments = set()
+        if (export_data_table(cursor, data.playlists, 'playlists')):
+            data.playlists = set()
+
         # TODO currently included for completeness 
         # though the tables are only going to be empty sets at present
-        export_data_table(cursor, data.genres, 'genres')
-        export_data_table(cursor, data.tags, 'tags')
-        export_data_table(cursor, data.user_genres, 'user_genres')
-        export_data_table(cursor, data.user_tags, 'user_tags')
-        export_data_table(cursor, data.x_faves_work_of_y, 'x_faves_work_of_y')
-        export_data_table(cursor, data.comments_corp, 'comments_corp')
-         
+        if (export_data_table(cursor, data.genres, 'genres')):
+            data.genres = set()
+        if (export_data_table(cursor, data.tags, 'tags')):
+            data.tags = set()
+        if (export_data_table(cursor, data.user_genres, 'user_genres')):
+            data.user_genres = set()
+        if (export_data_table(cursor, data.user_tags, 'user_tags')):
+            data.user_tags = set()
+        if (export_data_table(cursor, data.x_faves_work_of_y, 'x_faves_work_of_y')):
+            data.x_faves_work_of_y = set()
+        if (export_data_table(cursor, data.comments_corp, 'comments_corp')):
+            data.comments_corp = set()
+ 
 
         print 'Ready to commit DB to file'
         db.commit()
@@ -769,15 +807,12 @@ def export_data_to_db_and_pickle(data, db_path):
     
     pickle_path = convert_db_to_pickle_path(db_path)
     pickle_ids_collected(data, pickle_path)
-    logging.info('Metadata saved in '+pickle_path)         
-    print('Metadata saved in '+pickle_path)
     
 
 
 
-def main(requested_sample_size = 10, requested_batch_size=2, db_to_add_data_from_param=None): 
-    seed = set([80778799])
-    get_new_snowball_sample(sample_size=requested_sample_size, desired_seed_users = seed, batch_size=requested_batch_size, db_to_add_data_from=db_to_add_data_from_param)
+def main(): 
+    get_new_snowball_sample(sample_size=300, batch_size=50)
 
 if __name__ == '__main__':
-    main(requested_sample_size=10, db_to_add_data_from_param='scdb.sqlite')
+    main()
