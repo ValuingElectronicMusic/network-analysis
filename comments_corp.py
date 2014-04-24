@@ -50,6 +50,7 @@ import re
 import deriv_db
 import add_data
 import guess_language # Needs to be installed from pypi (pip can find it)
+import detect_english2
 
 # Regexes for identifying things that will be filtered out of comments
 
@@ -102,6 +103,24 @@ def language(text):
     return guess_language.guessLanguage(text)
 
 
+def englishp(text):
+    '''Looks for a text with at least 50% words to be found in a
+    dictionary of English lemmas; to prevent very occasional
+    identification of French, Spanish, and Italian comments as
+    English, due to loanwords and words that coincidentally have the
+    same spelling, also checks that the text does not have a higher
+    proportion of words to be found in dictionaries of lemmas in those
+    languages. Misidentifies some short English comments as
+    non-English, especially where spellings are non-standard or there
+    are typing errors. Relies on a union of the OpenOffice
+    dictionaries for British and American English - which means we are
+    missing inflected forms (e.g. 'really' and 'fucking') because I
+    haven't figured out how to parse the affix files. Having scanned a
+    couple of thousand positives and negatives, I think I prefer this
+    to the above function using guess-language.'''
+    return detect_english2.englishp(text,0.5)
+
+
 def followsp(curssourc,x,y):
     curssourc.execute('SELECT * FROM x_follows_y WHERE follower=? and followed=?',(x,y))
     if curssourc.fetchone(): return True
@@ -125,8 +144,8 @@ def comment_data(curssourc,comment_id_list):
         x_fav_t=favesp(curssourc,c[1],id[0])
         gt=genretags(curssourc,c[2])
         filt=filtered(c[0])
-        lang=language(filt)
-        yield id[0],c[1],creator,x_fol_y,y_fol_x,x_fav_t,gt[0],gt[1],lang,c[3],filt
+        eng=englishp(filt)
+        yield id[0],c[1],creator,x_fol_y,y_fol_x,x_fav_t,gt[0],gt[1],eng,c[3],filt
 
 
 def add_comment_datum(cursderiv,comment):
