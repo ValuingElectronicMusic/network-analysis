@@ -10,10 +10,11 @@ client_settings.py
 time
 current_ids.bak
 scdb.sqlite.bk
-sqlite.sqdb
 test.py
 #*.pyc
+
 *.sqlite 
+*.pck
 
 # Byte-compiled / optimized / DLL files
 
