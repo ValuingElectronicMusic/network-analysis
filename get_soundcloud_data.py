@@ -381,7 +381,7 @@ def batch_data_collection(data, batch_size):
             seed_user = get_random_user()
             seed_user_id = seed_user.id
 
-        data.users.add(seed_user)
+        data.users.add(convert_soundcloud_resource_for_data(seed_user, 'users'))
         data.user_ids_collected.add(seed_user_id)
        
         # Collect data relevant to that user
@@ -431,7 +431,7 @@ def deal_with_new_track(data, track_id, track_object=None):
                 pass
                 # (as any missing attributes will be dealt with later) 
         # Now we're ready to add the new track to our data
-        data.tracks.add(track_object)
+        data.tracks.add(convert_soundcloud_resource_for_data(track_object, 'tracks'))
         data.track_ids_collected.add(track_id)
         # add track_producer_id to user_ids_to_collect
         deal_with_new_user(data, track_object.user_id)
@@ -440,7 +440,7 @@ def deal_with_new_comment(data, comment):
     ''' Check to see if we have already collected data on this comment in previous data collection.
         If we haven't collected this data already, collect it and add to the comments data '''
     if (not(comment.id in data.comment_ids_collected)):
-        data.comments.add(comment)
+        data.comments.add(convert_soundcloud_resource_for_data(comment, 'comments'))
         # add comment id to comment_ids_collected
         data.comment_ids_collected.add(comment.id)
         # collect user id and add to user_ids_to_be_collected if not already collected
@@ -526,7 +526,7 @@ def collect_groups_data(data, user):
                     # (as any missing attributes will be dealt with later) 
         # Now we're ready to add the new group info to our data (if not already added)
         if (not(group.id in data.group_ids_collected)):
-            data.groups.add(group)
+            data.groups.add(convert_soundcloud_resource_for_data(group, 'groups'))
             data.group_ids_collected.add(group.id)
 
  
@@ -623,7 +623,7 @@ def backup_and_save_data(data):
 def export_data_table(cursor, table_data, table_name):
     print ('Creating '+table_name+' table in DB....')
     ad.create_table(cursor, table_name)
-    ad.insert_data(cursor, table_name, table_data)
+    ad.insert_tuple_data_set_into_DB(cursor, table_name, table_data)
     
 
 def export_data_to_SQLite(data, db_path):
@@ -631,24 +631,6 @@ def export_data_to_SQLite(data, db_path):
     try:
         db = sqlite3.connect(db_path)
         cursor = db.cursor()
-        # Start with fresh database
-#         cursor.execute('''DROP TABLE IF EXISTS users''')
-#         cursor.execute('''DROP TABLE IF EXISTS x_follows_y''')
-#         cursor.execute('''DROP TABLE IF EXISTS tracks''')
-#         cursor.execute('''DROP TABLE IF EXISTS groups''')
-#         cursor.execute('''DROP TABLE IF EXISTS group_mem''')
-#         cursor.execute('''DROP TABLE IF EXISTS favourites''')
-#         cursor.execute('''DROP TABLE IF EXISTS comments''')
-#         cursor.execute('''DROP TABLE IF EXISTS playlists''')
-#         
-#         # TODO currently these derived tables don't exist except as empty sets
-#         cursor.execute('''DROP TABLE IF EXISTS genres''')
-#         cursor.execute('''DROP TABLE IF EXISTS tags''')
-#         cursor.execute('''DROP TABLE IF EXISTS user_genres''')
-#         cursor.execute('''DROP TABLE IF EXISTS user_tags''')
-#         cursor.execute('''DROP TABLE IF EXISTS x_faves_work_of_y''') 
-#         cursor.execute('''DROP TABLE IF EXISTS comments_corp''')
-#         db.commit()
 
         export_data_table(cursor, data.users, 'users')
         export_data_table(cursor, data.x_follows_y, 'x_follows_y')

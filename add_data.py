@@ -1,7 +1,9 @@
 '''
 Created on Apr 1, 2014
-
+@since: 2014-04-01
 @author: daniel-allington
+@since: 2014-04-14
+@author: annajordanous
 '''
 
 import sqlite3
@@ -172,7 +174,18 @@ def obj_atts_list(obj, att_lst):
 # any other errors - but that's the Pythonic way to do it as we will
 # want a stack trace etc.
 
-def insert_data(cursor,table_name,data):
+def insert_tuple_data_set_into_DB(cursor,table_name,data):
+    att_str=att_string(tables[table_name])
+    att_lst=att_list(att_str)
+    sql=('INSERT INTO {} ({}) '
+         'VALUES({})'.format(table_name,att_str,('?, '*len(att_lst))[:-2]))
+    for datum in data:
+        try:
+            cursor.execute(sql,datum)
+        except sqlite3.IntegrityError:
+            pass
+
+def insert_SC_data_into_DB(cursor,table_name,data):
     att_str=att_string(tables[table_name])
     att_lst=att_list(att_str)
     sql=('INSERT INTO {} ({}) '
@@ -184,6 +197,15 @@ def insert_data(cursor,table_name,data):
         except sqlite3.IntegrityError:
             pass
 
+
+# AJ added 
+def convert_soundcloud_resource_for_data(new_entry,table_name):
+    att_str=att_string(tables[table_name])
+    att_lst=att_list(att_str)
+    #sql=('INSERT INTO {} ({}) '
+    #     'VALUES({})'.format(table_name,att_str,('?, '*len(att_lst))[:-2]))
+    return tuple(obj_atts_list(new_entry,att_lst))
+    
 
 # This one is for inserting into the _deriv database.
 
@@ -227,7 +249,7 @@ def test(db_filename,test_data,table_name):
     connection = sqlite3.connect(db_filename)
     cursor = connection.cursor()
     create_table(cursor,table_name)
-    insert_data(cursor,table_name,test_data)
+    insert_data_into_DB(cursor,table_name,test_data)
     connection.commit()
 
 
