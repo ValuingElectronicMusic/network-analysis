@@ -102,9 +102,8 @@ deriv_names = set(['genres','tags','user_genres','user_tags','x_faves_work_of_y'
 # the tables dictionary above
 
 def create_table(cursor,table_name):
-    cursor.execute('DROP TABLE IF EXISTS {}'.format(table_name))
-    cursor.execute('CREATE TABLE IF NOT '
-                   'EXISTS {}({})'.format(table_name,tables[table_name]))
+    #cursor.execute('DROP TABLE IF EXISTS {}'.format(table_name))
+    cursor.execute('CREATE TABLE IF NOT EXISTS {}({})'.format(table_name,tables[table_name]))
 
 
 # Function to create all the tables we need for the original database
