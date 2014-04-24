@@ -24,7 +24,7 @@ city TEXT, country TEXT,
 track_count INTEGER, playlist_count INTEGER, public_favorites_count INTEGER, 
 followers_count INTEGER, followings_count INTEGER,
 website TEXT, website_title TEXT, 
-avatar_url TEXT, discogs_name TEXT, myspace_name TEXT, subscriptions TEXT'''
+avatar_url TEXT, discogs_name TEXT, myspace_name TEXT'''
 
 tracks_table_creator='''id INTEGER PRIMARY KEY, user_id TEXT,  
 title TEXT, permalink_url TEXT, description TEXT, tag_list TEXT, state TEXT,
@@ -249,7 +249,7 @@ def test(db_filename,test_data,table_name):
     connection = sqlite3.connect(db_filename)
     cursor = connection.cursor()
     create_table(cursor,table_name)
-    insert_data_into_DB(cursor,table_name,test_data)
+    insert_SC_data_into_DB(cursor,table_name,test_data)
     connection.commit()
 
 

@@ -14,18 +14,23 @@ import client_settings
 import time
 import sqlite3
 import logging
-import logging
-logging.basicConfig(filename='logs/log'+time.strftime('%Y%m%d-%H%M')+'.log',level=logging.DEBUG)
-logging.debug('This message should go to the log file')
-logging.info('So should this')
-logging.warning('And this, too')
+try: 
+    logging.basicConfig(filename='logs/log'+time.strftime('%Y%m%d-%H%M')+'.log',level=logging.DEBUG)
+except Exception as e:
+    logging.basicConfig(filename='log'+time.strftime('%Y%m%d-%H%M')+'.log',level=logging.DEBUG)
+    # on the assumption that we've been able to set up a logging file...
+    # if we haven't, then this exception will crash the program, but this is a good thing as we want logging to work
+    logging.warning('ERROR during initial imports setting up log file: '+e.message+' '+str(e.args))         
+
 
 import add_data as ad 
 
 try:   # not all Python implementations have cPickle, pickle is a slower alternative
     import cPickle as pickle
-except:
+except Exception as e:
     import pickle
+    logging.warning('ERROR during initial imports - cPickle unavailable, using (slower) pickle: '+e.message+' '+str(e.args))         
+    
 db_path = 'scdb.sqlite'
 client = soundcloud.Client(client_id=client_settings.get_client_id())
 request_count = 0
@@ -34,15 +39,17 @@ time_delay = 2 # time delay in seconds between failed attempts
 def get_table(table_name):
     '''Returns a set of the contents of one entire table from the sqlite database.'''
     global db_path
+    logging.info('In get_table() - retrieving '+table_name+' table from database: '+db_path)
     try:
         conn = sqlite3.connect(db_path)
         with conn:
             curs = conn.cursor()
             curs.execute("SELECT * FROM {!s}".format(table_name))
             return set(curs.fetchall())  # list returned by curs.fetchall(), transformed to set
-    except Exception:
+    except Exception as e:
         # for some reason, table contents couldn't be retrieved
         # Just return an empty set in place of a set of contents
+        logging.warning('ERROR in get_table() retrieving '+table_name+' from database '+db_path+': '+e.message+' '+str(e.args))
         return set()
     
 def get_pickled_data(pickled_data, ids_set_wanted):
@@ -50,7 +57,8 @@ def get_pickled_data(pickled_data, ids_set_wanted):
         Handles exceptions, returning a blank set if the desired data is not in the pickled data'''
     try:
         return pickled_data[ids_set_wanted]   # this is a set
-    except:
+    except Exception as e:
+        logging.warning('ERROR in get_pickled_data() for '+ids_set_wanted+' data: '+e.message+' '+str(e.args))        
         return set()
     
 
@@ -59,7 +67,7 @@ class SC_data():
     def __init__(self):
         # The following class variables represent data about the SoundCloud users in our
         # sample set. We collect all data relating to users in our sample set
-        print '1. reading DATA from DB'  
+        logging.info('1. reading DATA from DB')  
         # DATA OBTAINED FROM SOUNDCLOUD API
         # users = set of SoundCloud user objects
         self.users = get_table('users')
@@ -87,7 +95,7 @@ class SC_data():
         self.x_faves_work_of_y = get_table('x_faves_work_of_y')
         self.comments_corp = get_table('comments_corp')
    
-        print '2. unpickling FURTHER DATA'
+        logging.info('2. unpickling FURTHER DATA')
         # FURTHER DATA 
         # For various SoundCloud data (especially SoundCloud objects), 
         # we maintain a list of ids of members in that set.
@@ -98,9 +106,9 @@ class SC_data():
         # read in cpickle of sets of ids collected/to-collect
         try:
             current_ids = pickle.load(open("current_ids.p", "rb")) # this may throw an exception
-        except:            
-            # set default of empty sets for each set of ids if there is no cPickle data
-            print 'No data available on previous batches collected/users to collect data on. Initialising...'
+        except Exception as e:            
+            logging.warning('ERROR in SC_data init - no previous pickled data to collect?: '+e.message+' '+str(e.args))         
+                # set default of empty sets for each set of ids if there is no cPickle data
             self.user_ids_to_collect = set()
             self.user_ids_collected = set()
             self.track_ids_collected = set()
@@ -123,11 +131,11 @@ class SC_data():
               str(len(self.users))+' comments, '+
               str(len(self.playlists))+' playlisted tracks.')
         print('Derived data: '+
-              str(len(self.genres))+' genres'+
-              str(len(self.tags))+' tags'+
-              str(len(self.user_genres))+' user genres'+
-              str(len(self.user_tags))+' user tags'+
-              str(len(self.x_faves_work_of_y))+' x_faves_work_of_y'+ 
+              str(len(self.genres))+' genres, '+
+              str(len(self.tags))+' tags, '+
+              str(len(self.user_genres))+' user genres, '+
+              str(len(self.user_tags))+' user tags, '+
+              str(len(self.x_faves_work_of_y))+' x_faves_work_of_y, '+ 
               str(len(self.comments_corp))+' in comments corpus')
 
 
@@ -149,8 +157,9 @@ def get_user_id_from_username(username):
         print('resolve user '+username)
         userId = client.get('/resolve', url='https://soundcloud.com/'+username)
         return userId.id
-    except Exception:
-        print('invalid username given')
+    except Exception as e:            
+        logging.warning('ERROR in get_user_id_from_username() resolving username '+username+': '+e.message+' '+str(e.args))         
+        print('invalid username given ('+username+')')
         return None
     
 def get_user_from_username(username):
@@ -160,8 +169,9 @@ def get_user_from_username(username):
         print('resolve user '+username)
         user = client.get('/resolve', url='https://soundcloud.com/'+username)
         return user
-    except Exception:
-        print('invalid username given')
+    except Exception as e:            
+        logging.warning('ERROR in get_user_from_username() resolving username '+username+': '+e.message+' '+str(e.args))         
+        print('invalid username given ('+username+')')
         return None
         
 def get_random_user():
@@ -170,8 +180,8 @@ def get_random_user():
         userId = random.randint(0, 200000000)
         try:
             user = client.get('/users/' + str(userId))
-        except Exception:
-            pass
+        except Exception as e:            
+            logging.warning('ERROR in get_random_user() : '+e.message+' '+str(e.args))         
         else:
             userfound = True    
     return user
@@ -182,8 +192,8 @@ def get_random_london_EM_user():
         userId = random.randint(0, 200000000)
         try:
             user = client.get('/users/' + str(userId))
-        except Exception:
-            pass
+        except Exception as e:            
+            logging.warning('ERROR in get_random_london_EM_user() : '+e.message+' '+str(e.args))         
         else:
             city = lower_case_str(user.city)
             country = lower_case_str(user.country)
@@ -208,8 +218,8 @@ def get_random_london_user():
         userId = random.randint(0, 200000000)
         try:
             user = client.get('/users/' + str(userId))
-        except Exception:
-            pass
+        except Exception as e:            
+            logging.warning('ERROR in get_random_london_user() : '+e.message+' '+str(e.args))         
         else:
             city = lower_case_str(user.city)
             country = lower_case_str(user.country)
@@ -228,8 +238,8 @@ def get_random_EM_user():
         userId = random.randint(0, 200000000)
         try:
             user = client.get('/users/' + str(userId))
-        except Exception:
-            pass
+        except Exception as e:            
+            logging.warning('ERROR in get_random_EM_user() : '+e.message+' '+str(e.args))         
         else:
             print('Trying user '+str(userId)+' with '+str(user.track_count)+' tracks')
             user_tracks = client.get('/users/'+str(userId)+'/tracks')
@@ -258,24 +268,25 @@ def client_get(request, max_attempts=100):
     success = False;
     count = 0
     result = None
-    
+
+    # NB SoundCloud generates its own logging for each request to the API
     while(not(success) and (count<max_attempts)):
         try:
             result = client.get(request)
             success = True
             break
-        except Exception as e:
+        except Exception as e:            
+            logging.warning('ERROR in client_get() - problem connecting to SoundCloud API, error '+str(e)+' for request '+request+'. Trying again... attempt '+str(count)+' of '+str(max_attempts))         
             count = count+1
             time.sleep(time_delay)
-            print('Problem connecting to SoundCloud client, error '+str(e)+' for request '+request+'. Trying again... attempt '+str(count)+' of '+str(max_attempts))
+            print('Problem connecting to SoundCloud API, error '+str(e)+' for request '+request+'. Trying again... attempt '+str(count)+' of '+str(max_attempts))
     if (not(success)):
+        logging.warning('ERROR in client_get() - ***Unable to retrieve information from SoundCloud for the request: '+request)         
         print('***Unable to retrieve information from SoundCloud for the request: '+request)
     request_count = request_count+count+1
-    if (request_count>=25):   # every 25 times we request data from SoundCloud, pause (to avoid overloading the server)
-        #print('pausing after '+str(request_count)+' requests made') # TODO remove
+    if (request_count>=30):   # every 30 times we request data from SoundCloud, pause (to avoid overloading the server)
         time.sleep(time_delay)
         request_count = 0
-        #print('finished pausing') # TODO remove
     return result
 
 def lower_case_str(inputText):
@@ -303,6 +314,9 @@ def get_new_snowball_sample(sample_size=500, desired_seed_users=set(), batch_siz
         NB this is the time window when we can interrupt batch_data_collection 
         NB I've chosen 10 seconds sleep, slightly arbitrarily, based on experiments so far
     done'''
+    logging.info('Collecting a new snowball sample of size '+str(sample_size)+' in batches of '
+                 +str(batch_size)+' with '+str(pause_between_batches)
+                 +' pause between batches and seed_users set of '+str(desired_seed_users))         
     
     # read in data collected so far
     data = SC_data()
@@ -321,13 +335,15 @@ def get_new_snowball_sample(sample_size=500, desired_seed_users=set(), batch_siz
             print(str(len(data.user_ids_collected))+'/'+str(sample_size)+' total users collected so far. Collecting the next batch of '+str(num_still_to_collect)+' users')
             batch_data_collection(data, num_still_to_collect)  
     
-        print('Pausing for '+str(pause_between_batches)+' seconds. You can interrupt data collection now by pressing Ctrl-C')
+        print('Pausing for '+str(pause_between_batches)+' seconds. You can terminate data collection at this time by pressing Ctrl-C')
         # print('User ids collected: '+str(data.user_ids_collected))
         # this is the time window when we can interrupt batch_data_collection 
         # NB I've chosen 10 seconds sleep, slightly arbitrarily, based on experiments so far
         time.sleep(pause_between_batches) # wait 10 seconds to give the server a break
         print 'Finished pausing, time for more data collection - please do not interrupt...'
     print('Snowball sample fully collected with a sample size of '+str(len(data.user_ids_collected))+' users. Saving a copy of the data to scdb_final.sqlite')
+    logging.info('Snowball sample fully collected with a sample size of '+str(len(data.user_ids_collected))+' users. Saving a copy of the data to scdb_final.sqlite')
+
     export_data_to_SQLite(data,'scdb_final.sqlite')
     data.print_data_summary()
     return data # in case results are to be collected during runtime  
@@ -359,6 +375,10 @@ def batch_data_collection(data, batch_size):
 	call backup_and_save_data and save collected data externally
 	# done
 	'''
+    #for time logging purposes
+    start_time=int(time.time())
+    logging.info('Starting new batch collection of '+str(batch_size)+' users at '+str(time.ctime()))
+    
     # repeat until 100 users collected:
     num_users_to_be_collected = len(data.user_ids_collected)+batch_size
     
@@ -381,7 +401,7 @@ def batch_data_collection(data, batch_size):
             seed_user = get_random_user()
             seed_user_id = seed_user.id
 
-        data.users.add(convert_soundcloud_resource_for_data(seed_user, 'users'))
+        data.users.add(ad.convert_soundcloud_resource_for_data(seed_user, 'users'))
         data.user_ids_collected.add(seed_user_id)
        
         # Collect data relevant to that user
@@ -389,17 +409,25 @@ def batch_data_collection(data, batch_size):
         # if an item has already been collected, collect it again and check if 
         # the collected info needs updating 
         # (we want to have the most up to date information)
+        logging.info('In batch_data_collection() collecting data on user '+str(seed_user_id))
         collect_follows_and_followers_data(data, seed_user_id)
         collect_favourited_tracks_data(data, seed_user_id)
         collect_groups_data(data, seed_user_id)
         collect_produced_tracks_data(data, seed_user_id)
         collect_comments_data(data, seed_user_id)
         collect_playlist_data(data, seed_user_id)
+        logging.info('In batch_data_collection() finished, collecting data on user '+str(seed_user_id))
         # now finished with this user, move onto the next user until 100 users collected
         # (go back to the start of the repeat loop again)
     
     # Here we are out of the while loop - we have collected 100 users
+    logging.info('Finished current batch collection of '+str(batch_size)+'users. Saving batch to DB')
     backup_and_save_data(data)
+
+    #for time logging purposes
+    current_time = int(time.time()) 
+    total_time = current_time-start_time
+    logging.info('Saved current batch collection of '+str(batch_size)+' users at '+str(time.ctime())+'. Total time taken (seconds): '+str(total_time))
     # done
     
 
@@ -424,14 +452,12 @@ def deal_with_new_track(data, track_id, track_object=None):
         # (Doing this now makes it easy to save the data to DB later)
         # This is for the 'permalink_url' info relating to the app that 
         # was used to create this track (if one was used)
-        if (not(track.created_with==None)):
-            try:
-                track.created_using_permalink_url = track.created_with['permalink_url']
-            except: # if this info is missing, ignore this for now 
-                pass
-                # (as any missing attributes will be dealt with later) 
+        try:
+            track_object.created_using_permalink_url = track_object.created_with['permalink_url']
+        except: # if this info is missing, ignore this for now 
+            pass   # (as any missing attributes will be dealt with and logged later) 
         # Now we're ready to add the new track to our data
-        data.tracks.add(convert_soundcloud_resource_for_data(track_object, 'tracks'))
+        data.tracks.add(ad.convert_soundcloud_resource_for_data(track_object, 'tracks'))
         data.track_ids_collected.add(track_id)
         # add track_producer_id to user_ids_to_collect
         deal_with_new_user(data, track_object.user_id)
@@ -440,7 +466,7 @@ def deal_with_new_comment(data, comment):
     ''' Check to see if we have already collected data on this comment in previous data collection.
         If we haven't collected this data already, collect it and add to the comments data '''
     if (not(comment.id in data.comment_ids_collected)):
-        data.comments.add(convert_soundcloud_resource_for_data(comment, 'comments'))
+        data.comments.add(ad.convert_soundcloud_resource_for_data(comment, 'comments'))
         # add comment id to comment_ids_collected
         data.comment_ids_collected.add(comment.id)
         # collect user id and add to user_ids_to_be_collected if not already collected
@@ -522,11 +548,10 @@ def collect_groups_data(data, user):
             try:
                 group.creator_id = group.creator['id']
             except: # if this info is missing, ignore this for now 
-                pass
-                    # (as any missing attributes will be dealt with later) 
+                pass  # (as any missing attributes will be dealt with and logged later) 
         # Now we're ready to add the new group info to our data (if not already added)
         if (not(group.id in data.group_ids_collected)):
-            data.groups.add(convert_soundcloud_resource_for_data(group, 'groups'))
+            data.groups.add(ad.convert_soundcloud_resource_for_data(group, 'groups'))
             data.group_ids_collected.add(group.id)
 
  
@@ -602,7 +627,7 @@ def backup_and_save_data(data):
     
     '''
     global db_path
-    
+    logging.info('Starting backup_and_save_data() processes: 1. Backup')    
     #do grandfather father son backup
     print('TODO backup_and_save_data')
     # TODO possibly put this within SC_data class?
@@ -612,8 +637,9 @@ def backup_and_save_data(data):
     # https://docs.python.org/2/library/os.html
     # and 
     # pickle.dump(current_ids, open("current_ids.p", "wb"))
-    
+    logging.info('Continuing backup_and_save_data() processes: 2. Saving new data to external DB')    
     export_data_to_SQLite(data, db_path)
+    logging.info('Data backed up and saved')
     print('Latest snapshot of data stored in '+db_path+' database.')
 
 
@@ -621,7 +647,7 @@ def backup_and_save_data(data):
 
 
 def export_data_table(cursor, table_data, table_name):
-    print ('Creating '+table_name+' table in DB....')
+    logging.info('Creating '+table_name+' table in DB.')
     ad.create_table(cursor, table_name)
     ad.insert_tuple_data_set_into_DB(cursor, table_name, table_data)
     
@@ -656,32 +682,30 @@ def export_data_to_SQLite(data, db_path):
 #                               VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''', 
 #                               (group.id, group.members_count, group.name, group.track_count, group.creator['id'], group.created_at, group.uri, group.moderated, group.short_description, group.contributors_count, group.description))
 #             except Exception as e:
-#                 print('Error adding group '+str(group.id)+' to the database: '+e.message+' '+str(e.args))
+#                 print('ERROR adding group '+str(group.id)+' to the database: '+e.message+' '+str(e.args))
 
 
         print 'Ready to commit DB to file'
         db.commit()
     # Catch the exception
-    except Exception as e:
+    except Exception as e:            
+        logging.warning('ERROR in export_data_to_SQLite function(), for DB at '+db_path+'. Changes rolled back and not committed. ERROR details: '+e.message+' '+str(e.args))         
         # Roll back any change if something goes wrong
         db.rollback()
-        print 'Exception caught in export_data_to_SQLite function'
-        print e.message
-        print(str(e.args))
+        print('Exception caught in export_data_to_SQLite function, '+e.message+str(e.args))
         #raise e
+    else:
+        logging.info('Data saved in '+db_path)         
+        print('Data saved in '+db_path)
     finally:
         # Close the db connection
         db.close()
-        print('Data saved in '+db_path)
+
 
 
 def main(requested_sample_size = 10, requested_batch_size=2): 
-    print('starting')
     seed = set([80778799])
-    sample = get_new_snowball_sample(sample_size=requested_sample_size, desired_seed_users = seed, batch_size=requested_batch_size)
-    print 'finished'  
-    #printData() 
-    #export_data_to_SQLite()
+    get_new_snowball_sample(sample_size=requested_sample_size, desired_seed_users = seed, batch_size=requested_batch_size)
 
 if __name__ == '__main__':
-    main(requested_sample_size=0)
+    main(requested_sample_size=10)
