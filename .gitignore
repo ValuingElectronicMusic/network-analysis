@@ -11,9 +11,10 @@ time
 current_ids.bak
 scdb.sqlite.bk
 test.py
+logging_help.txt
 #*.pyc
 
-*.sqlite 
+scdb*.sqlite 
 *.pck
 
 # Byte-compiled / optimized / DLL files

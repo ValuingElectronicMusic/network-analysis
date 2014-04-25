@@ -37,7 +37,7 @@ request_count = 0
 time_delay = 2 # time delay in seconds between failed attempts
 
 last_backup_time = int(time.time()) # initial value
-time_between_backups_secs = 3600 # TODO RESET after testing 86400 seconds = 24 hours, 3600 = 1 hour
+time_between_backups_secs = 1 # TODO RESET after testing 86400 seconds = 24 hours, 3600 = 1 hour
 
 def get_table(table_name, db_path):
     '''Returns a set of the contents of one entire table from the sqlite database.'''
@@ -82,15 +82,7 @@ class SC_data():
         # group_membership - set of tuples representing SoundCloud groups a user is member of
         # comments - set of SoundCloud comments for a particular track
         # playlists - set of SoundCloud users' playlisted tracks
-
-        # The following table creators are for the _deriv database.
-        # genres
-        # tags
-        # user_genres
-        # user_tags 
-        # x_faves_work_of_y
-        # comments_corp
-                
+            
         # FURTHER DATA 
         # For various SoundCloud data (especially SoundCloud objects), 
         # we maintain a list of ids of members in that set.
@@ -110,13 +102,6 @@ class SC_data():
             self.comments = set()
             self.playlists = set()
         
-            self.genres = set()
-            self.tags = set()
-            self.user_genres = set()
-            self.user_tags = set()
-            self.x_faves_work_of_y = set()
-            self.comments_corp = set()
-
             self.user_ids_to_collect = set()
             self.user_ids_collected = set()
             self.track_ids_collected = set()
@@ -137,12 +122,6 @@ class SC_data():
             self.comments = get_table('comments', db_to_add_data_from)
             self.playlists = get_table('playlists', db_to_add_data_from)
             
-            self.genres = get_table('genres', db_to_add_data_from)
-            self.tags = get_table('tags', db_to_add_data_from)
-            self.user_genres = get_table('user_genres', db_to_add_data_from)
-            self.user_tags = get_table('user_tags', db_to_add_data_from)
-            self.x_faves_work_of_y = get_table('x_faves_work_of_y', db_to_add_data_from)
-            self.comments_corp = get_table('comments_corp', db_to_add_data_from)
           
             # read in cpickle of sets of ids collected/to-collect
             try:
@@ -173,13 +152,6 @@ class SC_data():
               str(len(self.group_mem))+' group memberships, '+
               str(len(self.users))+' comments, '+
               str(len(self.playlists))+' playlisted tracks.')
-        print('Derived data: '+
-              str(len(self.genres))+' genres, '+
-              str(len(self.tags))+' tags, '+
-              str(len(self.user_genres))+' user genres, '+
-              str(len(self.user_tags))+' user tags, '+
-              str(len(self.x_faves_work_of_y))+' x_faves_work_of_y, '+ 
-              str(len(self.comments_corp))+' in comments corpus')
 
 
 def peek_at_collection(collection_being_peeked, maximum=5):
@@ -224,7 +196,7 @@ def get_random_user():
         try:
             user = client.get('/users/' + str(userId))
         except Exception as e:            
-            logging.warning('ERROR in get_random_user() : '+e.message+' '+str(e.args))         
+            logging.warning('ERROR in get_random_user() : '+str(e.message)+' '+str(e.args))         
         else:
             userfound = True    
     return user
@@ -319,8 +291,8 @@ def client_get(request, max_attempts=100):
             success = True
             break
         except Exception as e:            
-            logging.warning('ERROR in client_get() - problem connecting to SoundCloud API, error '+str(e)+' for request '+request+'. Trying again... attempt '+str(count)+' of '+str(max_attempts))         
             count = count+1
+            logging.warning('ERROR in client_get() - problem connecting to SoundCloud API, error '+str(e)+' for request '+request+'. Trying again... attempt '+str(count)+' of '+str(max_attempts))         
             time.sleep(time_delay)
             print('Problem connecting to SoundCloud API, error '+str(e)+' for request '+request+'. Trying again... attempt '+str(count)+' of '+str(max_attempts))
     if (not(success)):
@@ -415,10 +387,13 @@ def get_new_snowball_sample(sample_size=500, desired_seed_users=set(), batch_siz
             # NB I've chosen 10 seconds sleep, slightly arbitrarily, based on experiments so far
             time.sleep(pause_between_batches) # wait 10 seconds to give the server a break
             print 'Finished pausing, time for more data collection - please do not interrupt it now...'
+    #todo remove
+    batch_data_collection(data, 0, current_db_path)
     print('Snowball sample fully collected with a sample size of '+str(len(data.user_ids_collected))+' users. Saving a copy of the data to scdb_FINAL.sqlite')
     logging.info('Snowball sample fully collected with a sample size of '+str(len(data.user_ids_collected))+' users. Saving a copy of the data to scdb_FINAL.sqlite')
-    data.print_data_summary()
-    export_data_to_db_and_pickle(data,'scdb_FINAL.sqlite')
+#    data.print_data_summary()
+    shutil.copy(current_db_path, 'scdb_FINAL.sqlite')
+    shutil.copy(current_pickle_path, 'scdb_FINAL.sqlite.pck')
     return data # in case results are to be collected during runtime  
 
 
@@ -473,6 +448,7 @@ def batch_data_collection(data, batch_size, db_path):
         else: 
             seed_user = get_random_user()
             seed_user_id = seed_user.id
+            logging.info('In batch_data_collection() - collecting random user as seed user: '+str(seed_user_id))
 
         data.users.add(ad.convert_soundcloud_resource_for_data(seed_user, 'users'))
         data.user_ids_collected.add(seed_user_id)
@@ -483,17 +459,19 @@ def batch_data_collection(data, batch_size, db_path):
         # the collected info needs updating 
         # (we want to have the most up to date information)
         logging.info('In batch_data_collection() collecting data on user '+str(seed_user_id))
+        print('Collecting data on user '+str(seed_user_id)+'...')
         collect_follows_and_followers_data(data, seed_user_id)
         collect_favourited_tracks_data(data, seed_user_id)
         collect_groups_data(data, seed_user_id)
         collect_produced_tracks_data(data, seed_user_id)
         collect_comments_data(data, seed_user_id)
         collect_playlist_data(data, seed_user_id)
-        logging.info('batch_data_collection() finished, collecting data on user '+str(seed_user_id))
+        logging.info('batch_data_collection() finished collecting data on user '+str(seed_user_id))
         # now finished with this user, move onto the next user until 100 users collected
         # (go back to the start of the repeat loop again)
     
     # Here we are out of the while loop - we have collected 100 users
+    
     logging.info('Finished current batch collection of '+str(batch_size)+'users. Saving batch to DB')
     backup_and_save_data(data, db_path)
 
@@ -714,15 +692,8 @@ def backup_and_save_data(data, db_path):
         save current information to sonDB+pickle # save updated DB tables and cpickle
     
     '''
-    global last_backup_time 
     pickle_path = convert_db_to_pickle_path(db_path)
     logging.info('Starting backup_and_save_data() processes: 1. Backup')
-    current_time = int(time.time())
-    if ((last_backup_time+time_between_backups_secs) <= current_time):
-        # make permanent backups of the data every 24 hours
-        backup_db = 'scdb'+time.strftime('%Y%m%d-%H%M',time.localtime(current_time))+'BK.sqlite'
-        export_data_to_db_and_pickle(data, backup_db)
-        last_backup_time = current_time
     # Do grandfather father son backup
     father_db_path = db_path.replace('current','father')
     grandfather_db_path = db_path.replace('current','grandfather')
@@ -736,8 +707,20 @@ def backup_and_save_data(data, db_path):
     
      
     logging.info('Continuing backup_and_save_data() processes: 2a. Saving new data to external DB '+db_path+' and pickle file'+pickle_path)    
+    print('Backing up and saving data - adding: ')
+    data.print_data_summary()
     export_data_to_db_and_pickle(data, db_path)
-    
+    current_time = int(time.time())
+    global last_backup_time 
+    if ((last_backup_time+time_between_backups_secs) <= current_time):
+        # make permanent backups of the data every 24 hours
+        backup_db = 'scdb'+time.strftime('%Y%m%d-%H%M',time.localtime(current_time))+'BK.sqlite'
+#        backup_data = data.copy()  # copy made, as the backup process clears the data and we want to backup this data twice
+        shutil.copy(db_path, backup_db)
+        shutil.copy(convert_db_to_pickle_path(db_path), convert_db_to_pickle_path(backup_db))
+        last_backup_time = current_time
+        logging.info('In backup_and_save_data() - back entire database every '+str(time_between_backups_secs/3600)+' hours. Backed up to '+backup_db)
+
     logging.info('Data backed up and saved')
     print('Latest snapshot of data stored in '+db_path+' database and '+pickle_path+' pickle file.')
 
@@ -773,22 +756,6 @@ def export_data_to_db_and_pickle(data, db_path):
         if (export_data_table(cursor, data.playlists, 'playlists')):
             data.playlists = set()
 
-        # TODO currently included for completeness 
-        # though the tables are only going to be empty sets at present
-        if (export_data_table(cursor, data.genres, 'genres')):
-            data.genres = set()
-        if (export_data_table(cursor, data.tags, 'tags')):
-            data.tags = set()
-        if (export_data_table(cursor, data.user_genres, 'user_genres')):
-            data.user_genres = set()
-        if (export_data_table(cursor, data.user_tags, 'user_tags')):
-            data.user_tags = set()
-        if (export_data_table(cursor, data.x_faves_work_of_y, 'x_faves_work_of_y')):
-            data.x_faves_work_of_y = set()
-        if (export_data_table(cursor, data.comments_corp, 'comments_corp')):
-            data.comments_corp = set()
- 
-
         print 'Ready to commit DB to file'
         db.commit()
     # Catch the exception
@@ -812,7 +779,7 @@ def export_data_to_db_and_pickle(data, db_path):
 
 
 def main(): 
-    get_new_snowball_sample(sample_size=300, batch_size=50)
+    get_new_snowball_sample(sample_size=250, batch_size=10, db_to_add_data_from='scdb20140424-1906current.sqlite')
 
 if __name__ == '__main__':
     main()

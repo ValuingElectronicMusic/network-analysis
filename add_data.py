@@ -141,23 +141,6 @@ def att_list(att_str):
 def obj_atts_list(obj, att_lst):
     l = []
     for att in att_lst:
-        # AJ added
-        # Some attributes are not plain attributes but are themselves
-        # specific sub-attributes of a attribute_dict
-        # As shorthand, these are indicated in the _table_creator fields
-        # using a double underscore __ . 
-        # Find and deal with retrieving these data separately  
-#         if ('__' in att):
-#             att_rep = att.replace('__', ',')
-#              split att around the '__' divider
-#             att_rep_spl = [a.strip() for a in att_rep.split(',')]
-#             try:
-#                 container_dict = getattr(obj,att_rep_spl[0])
-#                 l.append(container_dict.get(att_rep_spl[1],None))
-#                  
-#             except AttributeError:
-#                 l.append(None)
-#         else:
         try:
             l.append(getattr(obj,att))
         except AttributeError:
@@ -173,7 +156,7 @@ def obj_atts_list(obj, att_lst):
 # any other errors - but that's the Pythonic way to do it as we will
 # want a stack trace etc.
 
-def insert_tuple_data_set_into_DB(cursor,table_name,data):
+def insert_tuple_data_set_into_DB(cursor,table_name,data):  #AJ edit
     att_str=att_string(tables[table_name])
     att_lst=att_list(att_str)
     sql=('INSERT INTO {} ({}) '
@@ -185,7 +168,7 @@ def insert_tuple_data_set_into_DB(cursor,table_name,data):
             return False
     return True # successful if reached this stage
 
-def insert_SC_data_into_DB(cursor,table_name,data):
+def insert_SC_data_into_DB(cursor,table_name,data):  #AJ edit - was insert_data
     att_str=att_string(tables[table_name])
     att_lst=att_list(att_str)
     sql=('INSERT INTO {} ({}) '

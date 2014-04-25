@@ -10,7 +10,7 @@ https://github.com/ValuingElectronicMusic/ifdb-analysis (Author:
 daniel-allington)
 
 -----------------
-
+   
 NB to run this code, you need to be registered on SoundCloud as a 
 developer and have a client id. 
 
@@ -30,20 +30,34 @@ overload the SoundCloud servers.
 
 -------------
 
-To run the code from a Python 2.7 prompt ($)
+This code has been run and tested in Python 2.7
+To collect SoundCloud data, use get_new_snowball_sample().
+It has the following parameters and default values:
+* sample_size=500, 
+* desired_seed_users=set(), 
+* batch_size=100, 
+* pause_between_batches=10, 
+* db_to_add_data_from = None)
 
-* To collect data from soundcloud (e.g. to collect 100 users) and 
-save this data locally in an SQLite database: 
+This function generates a new sample of users (set to the 
+specified or default sample size), also generating
+data on those users' tracks and how the users interact 
+with other users on SoundCloud.
 
+Example of running this from a Python 2.7 prompt ($)
 $ import get_soundcloud_data as gsc 
+$ gsc.get_new_snowball_sample(sample_size=10, 
+    desired_seed_users={63287951},
+    batch_size=2, pause_between_batches=2)  
 
-$ gsc.main()
+(Other param not specified, default value will be used)
 
-Data will be stored in a local 'sqdb.sqlite' DB file
+Data will be stored in a local 'sqdb_FINAL.sqlite' DB file
 
 ---------------
 
-FOR SMALL SAMPLES: 
+THE FOLLOWING CODE IS SO FAR ONLY FUNCTIONAL FOR SMALL SAMPLES:
+(tested successfully up to 500 users) 
 * To analyse pre-collected soundcloud data (in sqdb.sqlite DB file), 
 generating 3 separate measures of influence and graph diagrams:
 
@@ -53,4 +67,3 @@ $ scna.demonstrate()
 
 Measures of influence will be output to the screen and graphs
 will be stored locally as .png files
-NB This code has only been shown to work with samples of 500 users or less
