@@ -37,7 +37,7 @@ It has the following parameters and default values:
 * desired_seed_users=set(), 
 * batch_size=100, 
 * pause_between_batches=10, 
-* db_to_add_data_from = None)
+* db_to_add_data_from = None
 
 This function generates a new sample of users (set to the 
 specified or default sample size), also generating
