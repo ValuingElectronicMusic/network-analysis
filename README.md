@@ -56,6 +56,10 @@ Data will be stored in a local 'sqdb_FINAL.sqlite' DB file
 
 ---------------
 
+Future work.
+
+---------------
+
 THE FOLLOWING CODE IS SO FAR ONLY FUNCTIONAL FOR SMALL SAMPLES:
 (tested successfully up to 500 users) 
 * To analyse pre-collected soundcloud data (in sqdb.sqlite DB file), 

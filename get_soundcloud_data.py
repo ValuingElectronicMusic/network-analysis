@@ -4,12 +4,11 @@ Created on Feb 25, 2014
 @author: annajordanous
 '''
 
-# TODO log errors plus calls to client get in external log files 
-
+#TODO 
+# q. final 'current' is one batch short'
 import random
 import shutil
 import soundcloud  
-#import process_scdb_data as pscd
 
 import client_settings
 import time
@@ -37,7 +36,7 @@ request_count = 0
 time_delay = 2 # time delay in seconds between failed attempts
 
 last_backup_time = int(time.time()) # initial value
-time_between_backups_secs = 1 # TODO RESET after testing 86400 seconds = 24 hours, 3600 = 1 hour
+time_between_backups_secs = 86400 # TODO RESET after testing 86400 seconds = 24 hours, 3600 = 1 hour
 
 def get_table(table_name, db_path):
     '''Returns a set of the contents of one entire table from the sqlite database.'''
@@ -299,7 +298,7 @@ def client_get(request, max_attempts=100):
         logging.warning('ERROR in client_get() - ***Unable to retrieve information from SoundCloud for the request: '+request)         
         print('***Unable to retrieve information from SoundCloud for the request: '+request)
     request_count = request_count+count+1
-    if (request_count>=50):   # every 50 times we request data from SoundCloud, pause (to avoid overloading the server)
+    if (request_count>=40):   # every 50 times we request data from SoundCloud, pause (to avoid overloading the server)
         time.sleep(time_delay)
         request_count = 0
     return result
@@ -387,11 +386,8 @@ def get_new_snowball_sample(sample_size=500, desired_seed_users=set(), batch_siz
             # NB I've chosen 10 seconds sleep, slightly arbitrarily, based on experiments so far
             time.sleep(pause_between_batches) # wait 10 seconds to give the server a break
             print 'Finished pausing, time for more data collection - please do not interrupt it now...'
-    #todo remove
-    batch_data_collection(data, 0, current_db_path)
     print('Snowball sample fully collected with a sample size of '+str(len(data.user_ids_collected))+' users. Saving a copy of the data to scdb_FINAL.sqlite')
     logging.info('Snowball sample fully collected with a sample size of '+str(len(data.user_ids_collected))+' users. Saving a copy of the data to scdb_FINAL.sqlite')
-#    data.print_data_summary()
     shutil.copy(current_db_path, 'scdb_FINAL.sqlite')
     shutil.copy(current_pickle_path, 'scdb_FINAL.sqlite.pck')
     return data # in case results are to be collected during runtime  
@@ -670,9 +666,10 @@ def pickle_ids_collected(data, pickle_path):
         pickle.dump(current_ids, open(pickle_path, "wb"))  # this may throw an exception
         logging.info('Metadata saved in '+pickle_path)         
         print('Metadata saved in '+pickle_path)
+        return True
     except Exception as e:            
         logging.warning('ERROR in pickle_ids_collected - data could not be pickled to '+pickle_path+': '+e.message+' '+str(e.args))         
-                  
+        return False
     
 
 
@@ -721,40 +718,39 @@ def backup_and_save_data(data, db_path):
         last_backup_time = current_time
         logging.info('In backup_and_save_data() - back entire database every '+str(time_between_backups_secs/3600)+' hours. Backed up to '+backup_db)
 
-    logging.info('Data backed up and saved')
-    print('Latest snapshot of data stored in '+db_path+' database and '+pickle_path+' pickle file.')
+        print('Latest snapshot of data saved to '+backup_db+' database and '+convert_db_to_pickle_path(backup_db)+' pickle file.')
 
 
 
 def export_data_table(cursor, table_data, table_name):
     logging.info('Creating '+table_name+' table in DB.')
     ad.create_table(cursor, table_name)  # creates table if not existing already
-    return ad.insert_tuple_data_set_into_DB(cursor, table_name, table_data)
+    ad.insert_tuple_data_set_into_DB(cursor, table_name, table_data)
     
 
 def export_data_to_db_and_pickle(data, db_path):
-#    print '' # for neater display 
     try:
         db = sqlite3.connect(db_path)
         cursor = db.cursor()
 
         # Export data, and if successful, wipe the saved data clean in local memory, ready for new data
-        if (export_data_table(cursor, data.users, 'users')):
-            data.users = set()
-        if (export_data_table(cursor, data.x_follows_y, 'x_follows_y')):
-            data.x_follows_y = set()
-        if (export_data_table(cursor, data.tracks, 'tracks')):
-            data.tracks = set()
-        if (export_data_table(cursor, data.groups, 'groups')):
-            data.groups = set()
-        if (export_data_table(cursor, data.group_mem, 'group_mem')):
-            data.group_mem = set()
-        if (export_data_table(cursor, data.favourites, 'favourites')):
-            data.favourites = set()
-        if (export_data_table(cursor, data.comments, 'comments')):
-            data.comments = set()
-        if (export_data_table(cursor, data.playlists, 'playlists')):
-            data.playlists = set()
+        # this is a bit of a hack - will make this code a bit less ugly later! TODO
+        export_data_table(cursor, data.users, 'users')
+        data.users = set()
+        export_data_table(cursor, data.x_follows_y, 'x_follows_y')
+        data.x_follows_y = set()
+        export_data_table(cursor, data.tracks, 'tracks')
+        data.tracks = set()
+        export_data_table(cursor, data.groups, 'groups')
+        data.groups = set()
+        export_data_table(cursor, data.group_mem, 'group_mem')
+        data.group_mem = set()
+        export_data_table(cursor, data.favourites, 'favourites')
+        data.favourites = set()
+        export_data_table(cursor, data.comments, 'comments')
+        data.comments = set()
+        export_data_table(cursor, data.playlists, 'playlists')
+        data.playlists = set()
 
         print 'Ready to commit DB to file'
         db.commit()
@@ -763,7 +759,7 @@ def export_data_to_db_and_pickle(data, db_path):
         logging.warning('ERROR in export_data_to_db_and_pickle function(), for DB at '+db_path+'. Changes rolled back and not committed. ERROR details: '+e.message+' '+str(e.args))         
         # Roll back any change if something goes wrong
         db.rollback()
-        print('Exception caught in export_data_to_db_and_pickle function, '+e.message+str(e.args))
+        print('Exception caught in export_data_to_db_and_pickle function, DB changes rolled back and this batch data was not saved'+e.message+str(e.args))
         #raise e
     else:
         logging.info('Data saved in '+db_path)         
@@ -776,10 +772,9 @@ def export_data_to_db_and_pickle(data, db_path):
     pickle_ids_collected(data, pickle_path)
     
 
-
-
 def main(): 
-    get_new_snowball_sample(sample_size=250, batch_size=10, db_to_add_data_from='scdb20140424-1906current.sqlite')
+    get_new_snowball_sample(sample_size=30, batch_size=5) 
+                            #db_to_add_data_from='scdb20140424-1906current.sqlite')
 
 if __name__ == '__main__':
     main()

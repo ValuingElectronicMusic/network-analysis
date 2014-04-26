@@ -164,10 +164,11 @@ def insert_tuple_data_set_into_DB(cursor,table_name,data):  #AJ edit
     for datum in data:
         try:
             cursor.execute(sql,datum)
-        except sqlite3.IntegrityError:
-            return False
-    return True # successful if reached this stage
-
+        except sqlite3.IntegrityError as ie:
+            pass
+            # logging.warning('Error adding data to DB: '+sql+str(datum)+str(ie.message)+str(ie.args))
+            # return False
+    
 def insert_SC_data_into_DB(cursor,table_name,data):  #AJ edit - was insert_data
     att_str=att_string(tables[table_name])
     att_lst=att_list(att_str)
