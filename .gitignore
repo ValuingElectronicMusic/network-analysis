@@ -14,6 +14,7 @@ test.py
 logging_help.txt
 #*.pyc
 
+todo
 scdb*.sqlite 
 *.pck
 
