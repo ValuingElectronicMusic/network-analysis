@@ -1,2 +1,134 @@
+<<<<<<< HEAD
+# git ls-files --others --exclude-from=.git/info/exclude
+# Lines that start with '#' are comments.
+# For a project mostly in C, the following would be a good set of
+# exclude patterns (uncomment them if you want to use them):
+# *.[oa]
+# *~
+client_settings.py
+#.project
+#.pydevproject
+time
+current_ids.bak
+scdb.sqlite.bk
+test.py
+logging_help.txt
+#*.pyc
+
+todo
+scdb*.sqlite 
+*.pck
+
+# Byte-compiled / optimized / DLL files
+
+__pycache__/
+
+*.py[cod]
+
+
+
+# C extensions
+
+*.so
+
+
+
+# Distribution / packaging
+
+.Python
+
+env/
+
+bin/
+
+build/
+
+develop-eggs/
+
+dist/
+
+eggs/
+
+lib/
+
+lib64/
+
+parts/
+
+sdist/
+
+var/
+
+*.egg-info/
+
+.installed.cfg
+
+*.egg
+
+
+
+# Installer logs
+
+pip-log.txt
+
+pip-delete-this-directory.txt
+
+
+
+# Unit test / coverage reports
+
+htmlcov/
+
+.tox/
+
+.coverage
+
+.cache
+
+nosetests.xml
+
+coverage.xml
+
+
+
+# Translations
+
+*.mo
+
+
+
+# Mr Developer
+
+.mr.developer.cfg
+
+.project
+
+.pydevproject
+
+
+
+# Rope
+
+.ropeproject
+
+
+
+# Django stuff:
+
+*.log
+
+*.pot
+
+
+
+# Sphinx documentation
+
+docs/_build/
+
+
+
+
+=======
 *.pyc
 *~
+>>>>>>> upstream/master

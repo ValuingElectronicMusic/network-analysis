@@ -127,10 +127,10 @@ def demonstrate():
     print('Reducing the built network to only those followed by other users...')
     g2 = reduce_network(g1)
     print('Reducing the built network further to followers_only...')
-    g3 = followers_only(g2)
-    d1 = draw_network(g1,'graph_full_network.png') # Extension determines file type.
-    d2 = draw_network(g2,'graph_reduced_network.png') # SVG, JPEG, EPS, etc are also
-    d3 = draw_network(g3,'graph_reduced_and_followers_only.png') # possible.
+    g3 = followers_only(g2)  # @UnusedVariable
+#    d1 = draw_network(g1,'graph_full_network.png') # Extension determines file type.
+#    d2 = draw_network(g2,'graph_reduced_network.png') # SVG, JPEG, EPS, etc are also
+#    d3 = draw_network(g3,'graph_reduced_and_followers_only.png') # possible.
 
     print ''
     print 'Calculating rankings...'
