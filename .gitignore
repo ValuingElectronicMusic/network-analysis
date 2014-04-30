@@ -15,8 +15,6 @@ logging_help.txt
 #*.pyc
 
 todo
-scdb*.sqlite 
-*.pck
 
 # Byte-compiled / optimized / DLL files
 
@@ -24,7 +22,8 @@ __pycache__/
 
 *.py[cod]
 
-
+*.sqlite
+*.pck
 
 # C extensions
 
