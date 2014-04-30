@@ -33,4 +33,5 @@ def test(start_at=55078931,steps=1):
     for i in range(steps):
         to_collect = [u for u in user_data if u not in folls_collected]
         x_follows_y,user_data = from_users(to_collect,x_follows_y,user_data)
+        folls_collected.update(to_collect)
     return user_data,x_follows_y,folls_collected
