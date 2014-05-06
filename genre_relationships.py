@@ -155,17 +155,14 @@ def create_gt_table(curssourc,cursderiv,colsourc,tabderiv):
     cursderiv.executemany(sql,add_ranks(l,thresh))
 
 
-def check_tables(cursderiv):
-    genre_table, tag_table = False,False
-    cursderiv.execute("SELECT name FROM sqlite_master WHERE type='table' "
-                      "AND name='genres'")
-    if len (cursderiv.fetchall()) > 0: 
-        genre_table = True
-    cursderiv.execute("SELECT name FROM sqlite_master WHERE type='table' "
-                      "AND name='tags'")
-    if len (cursderiv.fetchall()) > 0: 
-        tag_table = True
-    return genre_table,tag_table
+def check_tables(cursderiv,required_tables):
+    tables_present=[]
+    for t in required_tables:
+        cursderiv.execute("SELECT name FROM sqlite_master WHERE type='table' "
+                          "AND name=?",(t,))
+        tables_present.append(True if len (cursderiv.fetchall()) > 0 
+                              else False)
+    return tables_present
 
 
 def gt_tables(db_source):
@@ -196,13 +193,14 @@ def user_gt_tables(db_source):
     curssourc = connsourc.cursor()
     cursderiv = connderiv.cursor()
 
-    ct = check_tables(cursderiv)
+    required=['genres','tags']
+    ct = check_tables(cursderiv,required)
     if not ct[0] or not ct[1]:
-        if not ct[0]: print 'Could not find genres table.'
-        if not ct[1]: print 'Could not find tags table.'
+        for n,r in enumerate(ct):
+            if not r: print 'Could not find {} table.'.format(required[n])
         print ('Before calling this function, call gt_tables with '
                'path of source database to create necessary tables.')
-        return
+        return False
 
     curssourc.execute('SELECT user_id FROM tracks')
     users=set(curssourc.fetchall())
@@ -216,3 +214,4 @@ def user_gt_tables(db_source):
                                                    users,colsourc,ranktable))
         connderiv.commit()
 
+    return True
