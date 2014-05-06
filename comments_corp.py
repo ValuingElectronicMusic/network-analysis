@@ -128,7 +128,7 @@ def followsp(curssourc,x,y):
 
 
 def favesp(curssourc,x,t):
-    curssourc.execute('SELECT * FROM favourites WHERE user=? and track=?',(x,t))
+    curssourc.execute('SELECT * FROM favourites WHERE user_id=? and track_id=?',(x,t))
     if curssourc.fetchone(): return True
     else: return False
 
