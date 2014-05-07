@@ -16,7 +16,7 @@ logging_help.txt
 
 todo
 
-*.txt
+*.tmp
 
 # Byte-compiled / optimized / DLL files
 
