@@ -2,24 +2,24 @@
 # network (i.e. looks at those that a user follows, not those that
 # follow him/her) and keeps requesting an individual user's followings
 # until it knows it's got *all* of them. This completeness is possible
-# to achieve with followings but not with followers, as it is not possible
-# to access more than 8199 of either for a single individual, where
-# an individual may follow no more than 2000 others, but there is (of
-# course) no limit on the number he or she may be followed by. Does
-# not download any further data (tracks, favourites, etc) - we can
-# narrow down our search at this stage and choose whose tracks we
-# want. For example, we can make a corpus of comments sent between
-# people who follow each other.
+# to achieve with followings but not with followers, as it is not
+# possible to access more than 8199 of either for a single individual,
+# where an individual may follow no more than 2000 others, but there
+# is (of course) no limit on the number he or she may be followed
+# by. Does not download any further data (tracks, favourites, etc) -
+# we can narrow down our search at a later stage and choose whose
+# tracks we want. For example, we can make a corpus of comments sent
+# between people who follow each other (I conjecture: those who
+# consider themselves peers).
 
-# To do: remove all the paraphernalia around followers (e.g. the
-# construction of lists of people whose followers we need to collect);
-# avoid re-collecting an individual's followings just because he/she
-# has added a few in between data collections; set it up so that it
-# re-starts automatically, looping through a list of seed individuals
-# (probably, our interviewees) to the same depth (say, 4 degrees of
-# separation - which gives us all the interconnections between those
-# one, two, and three degrees of separation from each seed, where most
-# of the seeds are no more than 2 degrees of separation apart anyway).
+# To do: avoid re-collecting an individual's followings just because
+# he/she has added a few in between data collections; set it up so
+# that it re-starts automatically, looping through a list of seed
+# individuals (probably, our interviewees) to the same depth (say, 4
+# degrees of separation - which gives us all the interconnections
+# between those one, two, and three degrees of separation from each
+# seed, where most of the seeds are no more than 2 degrees of
+# separation apart anyway).
 
 import add_data as ad
 import get_soundcloud_data as gsd
@@ -67,7 +67,7 @@ class DbHandler(object):
         self.conn.commit()
 
     def collected_users(self):
-        fn=tmp_path+'collected_users'+self.ts+'.txt'
+        fn=tmp_path+'collected_users'+self.ts+'.tmp'
         self.logger.info('writing list of collected users to '
                          '{}'.format(fn))
         all_users = open(fn,'w')
@@ -76,19 +76,10 @@ class DbHandler(object):
         all_users.close()
         return open(fn,'r')
 
-    def collected_followers(self,user):
-        self.curs.execute('SELECT * FROM x_follows_y '
-                          'WHERE followed=?',(user,))
-        return len(self.curs.fetchall())
-
     def collected_followings(self,user):
         self.curs.execute('SELECT * FROM x_follows_y '
                           'WHERE follower=?',(user,))
         return len(self.curs.fetchall())
-
-    def total_followers(self,user):
-        return self.curs.execute('SELECT "followers_count" '
-                                 'FROM users WHERE id=?',(user,)).next()[0]
 
     def total_followings(self,user):
         return self.curs.execute('SELECT "followings_count" '
@@ -119,7 +110,7 @@ class UserData(DataHandler):
     vars=ad.att_list(ad.att_string(ad.tables[table]))
 
     def __init__(self,dbh,limit=1):
-        self._collected = open(tmp_path+'now_collected'+dbh.ts+'.txt','w+')
+        self._collected = open(tmp_path+'now_collected'+dbh.ts+'.tmp','w+')
         super(UserData,self).__init__(dbh,limit)
 
     @property
@@ -199,27 +190,15 @@ def starting_user(user_id,dbh):
     return gsd.client.get('/users/'+str(user_id)).obj
 
 
-def follows_user(user_id,dbh):
-    follows = get_data('/users/'+str(user_id)+'/followers',dbh)
-    x_follows_y = {(x,user_id) for x in follows}
-    return follows,x_follows_y
-
-
 def followed_by_user(user_id,dbh):
     followings = get_data('/users/'+str(user_id)+'/followings',dbh)
     x_follows_y = {(user_id,y) for y in followings}
     return followings,x_follows_y
 
 
-def collect_from_users(to_collect_followers,to_collect_following,
-                       collected_followers,collected_following,
+def collect_from_users(to_collect_following,
+                       collected_following,
                        user_data,x_follows_y,dbh):
-#    for user in to_collect_followers:
-#        us,xfy = follows_user(user,dbh)
-#        user_data.update(us)
-#        x_follows_y.update(xfy)
-#        collected_followers.write(str(user))
-#    collected_followers.seek(0)
     for user in to_collect_following:
         us,xfy = followed_by_user(user,dbh)
         user_data.update(us)
@@ -229,62 +208,48 @@ def collect_from_users(to_collect_followers,to_collect_following,
 
 def collected(dbh):
     cu = dbh.collected_users()
-    fn_followers=tmp_path+'collected_followers'+dbh.ts+'.txt'
-    fn_following=tmp_path+'collected_following'+dbh.ts+'.txt'
-    collected_followers=open(fn_followers,'w')
+    fn_following=tmp_path+'collected_following'+dbh.ts+'.tmp'
     collected_following=open(fn_following,'w')
     for u in cu:
         l = '{}\n'.format(u)
-        if dbh.collected_followers(u) >= dbh.total_followers(u):
-            collected_followers.write(l)
         if dbh.collected_followings(u) >= dbh.total_followings(u):
             collected_following.write(l)
-    collected_followers.close()
     collected_following.close()
-    collected_followers=open(fn_followers,'r+')
     collected_following=open(fn_following,'r+')
-    return collected_followers,collected_following
+    return collected_following
 
 
-def to_collect(user_data,collected_followers,collected_following,dbh):
-    fn_followers=tmp_path+'to_collect_followers'+dbh.ts+'.txt'
-    fn_following=tmp_path+'to_collect_following'+dbh.ts+'.txt'
-    to_collect_followers = open(fn_followers,'w')
+def to_collect(user_data,collected_following,dbh):
+    fn_following=tmp_path+'to_collect_following'+dbh.ts+'.tmp'
     to_collect_following = open(fn_following,'w')
     for user in user_data.collected:
-        if user not in collected_followers:
-            to_collect_followers.write(user)
         if user not in collected_following:
             to_collect_following.write(user)
-    to_collect_followers.close()
     to_collect_following.close()
-    collected_followers = open(fn_followers,'r')
     collected_following = open(fn_following,'r')
-    return collected_followers,collected_following
+    return collected_following
 
 
 def snowb(start_at,dbh,user_data,follow_data,steps):
     dbh.logger.info('Starting user: {}'.format(start_at))
     user_data.update({start_at:starting_user(start_at,dbh)})
-    collected_followers,collected_following = collected(dbh)
+    collected_following = collected(dbh)
     for step in range(steps):
         dbh.logger.info('Degrees of separation from '
                         '{}: {}'.format(start_at,step+1))
         if step==0:
-            to_collect_followers,to_collect_following = [start_at],[start_at]
+            to_collect_following = [start_at]
         else:
-            (to_collect_followers,
-             to_collect_following) = to_collect(user_data,
-                                                collected_followers,
-                                                collected_following,
-                                                dbh)
-        collect_from_users(to_collect_followers,to_collect_following,
-                           collected_followers,collected_following,
+            to_collect_following = to_collect(user_data,
+                                              collected_following,
+                                              dbh)
+        collect_from_users(to_collect_following,
+                           collected_following,
                            user_data,follow_data,dbh)
         user_data.save()
         follow_data.save()
-    return (to_collect_followers,to_collect_following,
-            collected_followers,collected_following,
+    return (to_collect_following,
+            collected_following,
             user_data,follow_data)
 
 
@@ -312,10 +277,10 @@ def collect(dbname,start_at,steps=1):
 
 Slackk = 202195
 Sephirot = 81070
-Sculpture = 261433 # actual username is tapebox 
+Sculpture = 261433 # Soundcloud website is 'tapebox'
 Ms_Skyrym = 15899888
 
 
 def test(steps=1):
-    collect('testfoward',Sculpture,steps=steps)
+    collect('testfowardsm',Sephirot,steps=steps)
 
