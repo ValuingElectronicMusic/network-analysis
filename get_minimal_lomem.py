@@ -151,15 +151,13 @@ def user_dicts(resource):
 
 def get_data(req,dbh):
     count1 = 1
-    return gsd.client_get(req)
     while True:
         count2 = 1
         while count2 < max_attempts:
-            return user_dicts(gsd.client_get(req))
             try:
-                return user_dicts(gsd.client_get(req))
+                return user_dicts(gsd.client.get(req))
             except Exception as e:
-                warning = ('ERROR in client_get() - problem connecting to '
+                warning = ('ERROR in client.get() - problem connecting to '
                            'SoundCloud API, error '+str(e)+' for '
                            'request '+req+'. Trying again... '
                            'attempt '+str(count2)+' of '+str(max_attempts))
@@ -199,13 +197,13 @@ def collect_from_users(to_collect_followers,to_collect_following,
         us,xfy = follows_user(user,dbh)
         user_data.update(us)
         x_follows_y.update(xfy)
-        collected_followers.write('{}\n'.format(user))
+        collected_followers.write(str(user))
     collected_followers.seek(0)
     for user in to_collect_following:
         us,xfy = followed_by_user(user,dbh)
         user_data.update(us)
         x_follows_y.update(xfy)
-        collected_following.write('{}\n'.format(user))
+        collected_following.write(str(user))
     collected_following.seek(0)
 
 def collected(dbh,thresh):
@@ -233,11 +231,10 @@ def to_collect(user_data,collected_followers,collected_following,dbh):
     to_collect_followers = open(fn_followers,'w')
     to_collect_following = open(fn_following,'w')
     for user in user_data.collected:
-        l='{}\n'.format(user)
         if user not in collected_followers:
-            to_collect_followers.write(l)
+            to_collect_followers.write(user)
         if user not in collected_following:
-            to_collect_following.write(l)
+            to_collect_following.write(user)
     to_collect_followers.close()
     to_collect_following.close()
     collected_followers = open(fn_followers,'r')
@@ -288,12 +285,11 @@ def collect(dbname,start_at,steps=1,thresh=0.5):
 
 
 Slackk = 202195
-FreaksAgainstSupermen = 55078931
 Sephirot = 81070
 Sculpture = 261433 # actual username is tapebox 
 Ms_Skyrym = 15899888
 
 
 def test(steps=1):
-    return collect('testit4',Sculpture,steps=steps)
+    collect('testit4',Sculpture,steps=steps)
 
