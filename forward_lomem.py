@@ -1,7 +1,25 @@
-# Like get_minimal.py, but without the memory overhead: uses text files
-# as buffers instead, and works through everything no more than a few
-# items at a time. Now also has logging and time delay, mostly cribbed
-# from get_soundcloud_data.py, although with a few changes.
+# Like get_minimal_lomem.py, but only moves forward through the
+# network (i.e. looks at those that a user follows, not those that
+# follow him/her) and keeps requesting an individual user's followings
+# until it knows it's got *all* of them. This completeness is possible
+# to achieve with followings but not with followers, as it is not possible
+# to access more than 8199 of either for a single individual, where
+# an individual may follow no more than 2000 others, but there is (of
+# course) no limit on the number he or she may be followed by. Does
+# not download any further data (tracks, favourites, etc) - we can
+# narrow down our search at this stage and choose whose tracks we
+# want. For example, we can make a corpus of comments sent between
+# people who follow each other.
+
+# To do: remove all the paraphernalia around followers (e.g. the
+# construction of lists of people whose followers we need to collect);
+# avoid re-collecting an individual's followings just because he/she
+# has added a few in between data collections; set it up so that it
+# re-starts automatically, looping through a list of seed individuals
+# (probably, our interviewees) to the same depth (say, 4 degrees of
+# separation - which gives us all the interconnections between those
+# one, two, and three degrees of separation from each seed, where most
+# of the seeds are no more than 2 degrees of separation apart anyway).
 
 import add_data as ad
 import get_soundcloud_data as gsd
@@ -145,78 +163,63 @@ class FollowData(DataHandler):
             self.add_record(t)
 
 
-def user_dicts(resource):
-    return {u.obj['id']:u.obj for u in resource.data}
+def user_dicts(resourcelist):
+    return {u.obj['id']:u.obj for u in resourcelist}
 
 
 def get_data(req,dbh):
-    count1 = 1
-    while True:
-        count2 = 1
-        while count2 < max_attempts:
+    collected = {}
+    start_at = 0
+    batch_length = 199
+    while batch_length > 198:
+        count = 1
+        while True:
             try:
-                return user_dicts(gsd.client.get(req),
-                                  limit=200)
-            # Could turn the above into a loop that keeps calling the API
-            # with a successively higher offset keyword argument until
-            # fewer than 200 results are returned. BUT this would mean
-            # that the program ended up spending an inordinate amount of
-            # time downloading Justin Timberlake's 5 million followers.
-            # Perhaps we should stop collecting followers and collect
-            # followings only - as nobody follows 5 million people. This
-            # would also be an easy way of avoiding useless collection
-            # of bot accounts.
-
-            # THAT SAID, I've checked and there seems to be a limit of
-            # 2000 on followings: about 1 in 60 of the accounts I've
-            # collected follows exactly 2000 other accounts. Which is
-            # somewhat artificial (a very small number follow just over
-            # 2000 - I wonder if the limit was imposed at a certain point
-            # in time).
-
+                batch=user_dicts(gsd.client.get(req,
+                                                order='created_at', 
+                                                limit=199,
+                                                offset=start_at))
+                collected.update(batch)
+                batch_length = len(batch)
+                start_at += 199
+                break
             except Exception as e:
                 warning = ('ERROR in client.get() - problem connecting to '
                            'SoundCloud API, error '+str(e)+' for '
                            'request '+req+'. Trying again... '
-                           'attempt '+str(count2)+' of '+str(max_attempts))
+                           'attempt '+str(count))
                 print warning
                 dbh.logger.warning(warning)
-                time.sleep(time_delay)
-                count2 += 1
-        big_delay = count1 * 600
-        warning = ('Max attempts exceeded. Waiting '
-                   '{} minutes before resuming.'.format(big_delay*10))
-        print warning
-        dbh.logger.warning(warning)
-        time.sleep(big_delay)
-        count1 += 1
+                time.sleep(time_delay * count)
+                count += 1
+    return collected
 
 
 def starting_user(user_id,dbh):
-    return get_data('/users/' + str(user_id),dbh).obj
+    return gsd.client.get('/users/'+str(user_id)).obj
 
 
 def follows_user(user_id,dbh):
-    follows = user_dicts(get_data('/users/'+str(user_id)+'/followers',dbh))
+    follows = get_data('/users/'+str(user_id)+'/followers',dbh)
     x_follows_y = {(x,user_id) for x in follows}
     return follows,x_follows_y
 
 
 def followed_by_user(user_id,dbh):
-    followed_by = user_dicts(get_data('/users/'+ str(user_id) +'/followings',dbh))
-    x_follows_y = {(user_id,y) for y in followed_by}
-    return followed_by,x_follows_y
+    followings = get_data('/users/'+str(user_id)+'/followings',dbh)
+    x_follows_y = {(user_id,y) for y in followings}
+    return followings,x_follows_y
 
 
 def collect_from_users(to_collect_followers,to_collect_following,
                        collected_followers,collected_following,
                        user_data,x_follows_y,dbh):
-    for user in to_collect_followers:
-        us,xfy = follows_user(user,dbh)
-        user_data.update(us)
-        x_follows_y.update(xfy)
-        collected_followers.write(str(user))
-    collected_followers.seek(0)
+#    for user in to_collect_followers:
+#        us,xfy = follows_user(user,dbh)
+#        user_data.update(us)
+#        x_follows_y.update(xfy)
+#        collected_followers.write(str(user))
+#    collected_followers.seek(0)
     for user in to_collect_following:
         us,xfy = followed_by_user(user,dbh)
         user_data.update(us)
@@ -224,7 +227,7 @@ def collect_from_users(to_collect_followers,to_collect_following,
         collected_following.write(str(user))
     collected_following.seek(0)
 
-def collected(dbh,thresh):
+def collected(dbh):
     cu = dbh.collected_users()
     fn_followers=tmp_path+'collected_followers'+dbh.ts+'.txt'
     fn_following=tmp_path+'collected_following'+dbh.ts+'.txt'
@@ -232,9 +235,9 @@ def collected(dbh,thresh):
     collected_following=open(fn_following,'w')
     for u in cu:
         l = '{}\n'.format(u)
-        if dbh.collected_followers(u) >= dbh.total_followers(u) * thresh:
+        if dbh.collected_followers(u) >= dbh.total_followers(u):
             collected_followers.write(l)
-        if dbh.collected_followings(u) >= (dbh.total_followings(u) * thresh):
+        if dbh.collected_followings(u) >= dbh.total_followings(u):
             collected_following.write(l)
     collected_followers.close()
     collected_following.close()
@@ -260,10 +263,10 @@ def to_collect(user_data,collected_followers,collected_following,dbh):
     return collected_followers,collected_following
 
 
-def snowb(start_at,dbh,user_data,follow_data,steps,thresh):
+def snowb(start_at,dbh,user_data,follow_data,steps):
     dbh.logger.info('Starting user: {}'.format(start_at))
     user_data.update({start_at:starting_user(start_at,dbh)})
-    collected_followers,collected_following = collected(dbh,thresh)
+    collected_followers,collected_following = collected(dbh)
     for step in range(steps):
         dbh.logger.info('Degrees of separation from '
                         '{}: {}'.format(start_at,step+1))
@@ -285,8 +288,7 @@ def snowb(start_at,dbh,user_data,follow_data,steps,thresh):
             user_data,follow_data)
 
 
-def collect(dbname,start_at,steps=1,thresh=0.5):
-    ts = time_stamp()
+def log_writer(ts):
     loghandler=logging.FileHandler(log_path+ts+'.log')
     logformatter=logging.Formatter('%(asctime)s: %(levelname)s: %(message)s')
     loghandler.setFormatter(logformatter)
@@ -294,12 +296,18 @@ def collect(dbname,start_at,steps=1,thresh=0.5):
     logger.setLevel(logging.DEBUG)
     logger.addHandler(loghandler)
     logger.info('Here we go...')
+    return logger
+
+
+def collect(dbname,start_at,steps=1):
+    ts = time_stamp()
+    logger = log_writer(ts)
     dbh = DbHandler(dbname,logger)
     dbh.create_tables_if_needed(['users','x_follows_y'])
     user_data = UserData(dbh,50)
     follow_data = FollowData(dbh,50)
     return snowb(start_at,dbh,user_data,follow_data,
-                        steps,thresh)
+                 steps)
 
 
 Slackk = 202195
@@ -309,5 +317,5 @@ Ms_Skyrym = 15899888
 
 
 def test(steps=1):
-    collect('testit4',Sculpture,steps=steps)
+    collect('testfoward',Sculpture,steps=steps)
 
