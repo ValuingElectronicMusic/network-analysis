@@ -177,11 +177,11 @@ def collect(dbname,start_at,steps=1,thresh=0.5):
                         steps,thresh)
 
 
-def test(steps=1):
-    return collect('testit7.sqlite',15899888,steps=steps)
+Slackk = 202195
+Sephirot = 81070
+Ms_Skyrym = 15899888
 
-# Slackk = 202195
-# FreaksAgainstSupermen = 55078931
-# Sephiroth = 30176
-# Sculpture = 758925
-# Ms Skyrym = 15899888
+
+def test(steps=1):
+    return collect('testit7.sqlite',Ms_Skyrym,steps=steps)
+
