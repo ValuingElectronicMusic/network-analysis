@@ -1,0 +1,1 @@
+Folder for temporary files created by forward_waves.py etc

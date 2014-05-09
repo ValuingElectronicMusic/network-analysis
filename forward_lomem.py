@@ -1,25 +1,24 @@
-# Like get_minimal_lomem.py, but only moves forward through the
-# network (i.e. looks at those that a user follows, not those that
-# follow him/her) and keeps requesting an individual user's followings
-# until it knows it's got *all* of them. This completeness is possible
-# to achieve with followings but not with followers, as it is not
-# possible to access more than 8199 of either for a single individual,
-# where an individual may follow no more than 2000 others, but there
-# is (of course) no limit on the number he or she may be followed
-# by. Does not download any further data (tracks, favourites, etc) -
-# we can narrow down our search at a later stage and choose whose
-# tracks we want. For example, we can make a corpus of comments sent
-# between people who follow each other (I conjecture: those who
-# consider themselves peers).
+# Like forward_lomem.py, but written to avoid attempting to collect data more
+# than once.
 
-# To do: avoid re-collecting an individual's followings just because
-# he/she has added a few in between data collections; set it up so
-# that it re-starts automatically, looping through a list of seed
-# individuals (probably, our interviewees) to the same depth (say, 4
-# degrees of separation - which gives us all the interconnections
-# between those one, two, and three degrees of separation from each
-# seed, where most of the seeds are no more than 2 degrees of
-# separation apart anyway).
+# To do:
+
+# snowb() function:
+#    set up a numbered, single-column table for each step
+#    let the data objects communicate with each other
+#    send step number to helper functions
+#    in loop:
+#         iterate through table for current step, putting it in a file
+#         every user ID in that file will be downloaded in this step
+
+# follow data object, add record method:
+#    the user being followed: is in the user data object's buffer?
+#         YES: pass
+#         NO:
+#                that user: is in the users table?
+#                      YES: pass
+#                      NO: add to the single-column table for the NEXT step
+#                          (relying on SQLite to spot if it's there already)
 
 import add_data as ad
 import get_soundcloud_data as gsd
