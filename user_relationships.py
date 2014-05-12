@@ -16,7 +16,7 @@ def faves_table(cursderiv):
 
 
 def get_faves(curssourc):
-    curssourc.execute('SELECT user,track FROM favourites')
+    curssourc.execute('SELECT user_id,track_id FROM favourites')
     return curssourc.fetchall()
 
 
@@ -53,7 +53,13 @@ def add_fave_relations(db_source):
     cursderiv=connderiv.cursor()
     faves_table(cursderiv)
     unaccounted=0
+    done=0
     for fave in fave_relations(curssourc,get_faves(curssourc)):
         if fave[1]:
             update_fave_table(cursderiv,fave)
+            done+=1
+            if done%1000==0: 
+                connderiv.commit()
+                print 'Done: '+str(done)
     connderiv.commit()
+    print 'Done: '+str(done)

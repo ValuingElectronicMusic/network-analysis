@@ -28,13 +28,18 @@ import itertools
 # easily get that for English, but not at home as I don't have any
 # good corpora installed.
 
-langs = {'en':['en_GB','en_GB-oed','en_US','en_WWW','en_EDM'],
+# Actually, tried that (see detect_english3.py). Not sure which was
+# better. For now, combining the two - will be slow but let's just do
+# it.
+
+langs = {'en':['en_GB','en_GB-oed','en_GB-bncb','en_US','en_WWW','en_EDM'],
          'es':['es_ES'],
          'fr':['fr_FR'],
          'it':['it_IT']}
 
 sep = re.compile(r'\\|/')
 roman = re.compile('[a-z]')
+
 
 def get_dic(title):
     with open('dictionaries/'+title+'/'+title+'.dic', 'r') as f:

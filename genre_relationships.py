@@ -29,6 +29,9 @@ Created on Apr 9, 2014
 # SoundCloud. Calculating betweenness centrality for these clusters
 # will help to identify key terms and individuals.
 
+# Edit: this now removes all spaces and hyphens from within strings.
+# Reason is to stop 'hip hop', 'hip-hop', and 'hiphop' appearing as
+# three different things.
 
 import sqlite3
 import re
@@ -40,6 +43,7 @@ import deriv_db
 
 genre_sep = re.compile(r'"|,|/|\\')
 tag_captu = re.compile(r'"(.+?)"|\b(\S+?)\b')
+to_remove = re.compile(r'[ -]')
 
 genre_threshold = 2 
 tag_threshold = 2
@@ -72,7 +76,8 @@ def all_tags(curs):
 
 
 def clean(l):
-    return [i for i in l if len(i)>1 and i not in stop]
+    l2=[to_remove.sub('',i) for i in l]
+    return [i for i in l2 if len(i)>1 and i not in stop]
 
 
 def strings_from_string(s,col):
@@ -176,6 +181,7 @@ def gt_tables(db_source):
 
 def deriv_user_data(curssourc,cursderiv,users,colsourc,ranktable):
     for user in users:
+        print 'Working with user: '+str(user)
         to_count=strings_from_iterator(user_data(curssourc,user[0],colsourc),
                                        colsourc)
         counted=collections.Counter(to_count).most_common()
@@ -207,7 +213,7 @@ def user_gt_tables(db_source):
 
     for colsourc,tabderiv,ranktable in [('genre','user_genres','genres'),
                                         ('tag_list','user_tags','tags')]:
-  
+        print 'Now working with: '+ranktable
         add_data.create_table(cursderiv,tabderiv)
         add_data.insert_deriv_data(cursderiv,tabderiv,
                                    deriv_user_data(curssourc,cursderiv,
