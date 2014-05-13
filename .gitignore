@@ -21,6 +21,7 @@ todo
 *.csv
 *.csv#
 *.zip
+*.txt
 
 # Byte-compiled / optimized / DLL files
 

@@ -30,21 +30,25 @@ def binary_csv(db_fn,str_type):
 
     db_rows=user_strings(curs,'user_{}'.format(str_type))
     binary_rows=[strings]
+    sentences=[]
 
     for n,r in enumerate(db_rows):
         binary_row=[]
         three_strings=r[1].split(' | ')
         strings_used=0
+        three_strings_used=[]
         for s in strings:
             if s in three_strings: 
                 binary_row.append(1)
                 strings_used+=1
+                three_strings_used.append(s)
             else: binary_row.append(0)
         if strings_used > 1:
             binary_rows.append(binary_row)
+            sentences.append(' '.join(three_strings_used))
 #        if n > 100: break
 
-    return binary_rows
+    return binary_rows,sentences
 
 def co_occur_matrix(binary_rows):
     cats=binary_rows[0]
@@ -56,7 +60,7 @@ def co_occur_matrix(binary_rows):
             if col==1: present.append(n2)
         for item1 in present:
             for item2 in present:
-                matrix[item1][item2]+=1
+                if item1 != item2: matrix[item1][item2]+=1
     for n,row in enumerate(matrix):
         row.reverse()
         row.append(cats[n])
@@ -72,7 +76,7 @@ def co_occur_matrix(binary_rows):
 
 def write_csv(csv_fn,csv_data):
     f=codecs.open(csv_fn,'wb','utf-8')
-    csv_writer = csv.writer(f, delimiter=',',quotechar='"',
+    csv_writer = csv.writer(f, delimiter=';',quotechar='"',
                             quoting=csv.QUOTE_NONNUMERIC)
     csv_writer.writerows(csv_data)
 
@@ -82,9 +86,22 @@ def test():
     db_fn='scdb20140501-1106current_deriv'
     for strtype in ['genres','tags']:
         csv_fn='test'+strtype
-        binary_data=binary_csv(dirpath+db_fn+'.sqlite',strtype)
+        binary_data,s=binary_csv(dirpath+db_fn+'.sqlite',strtype)
         matrix_data=co_occur_matrix(binary_data)
         write_csv(dirpath+csv_fn+'_bin.csv',binary_data)
         write_csv(dirpath+csv_fn+'_mat.csv',matrix_data)
 
 
+def test2():
+    dirpath='vis/'
+    db_fn='scdb20140501-1106current_deriv'
+    for strtype in ['genres','tags']:
+        txt_fn='test'+strtype
+        binary_data,sentences=binary_csv(dirpath+db_fn+'.sqlite',strtype)
+        matrix_data=co_occur_matrix(binary_data)
+        with open(dirpath+txt_fn+'.txt','w') as f:
+            for s in sentences:
+                try:
+                    f.write('{}. \n'.format(s))
+                except:
+                    pass
