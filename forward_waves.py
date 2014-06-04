@@ -9,11 +9,12 @@
 # it would do if SoundCloud had generated an error. This means that it
 # needs a way of reliably picking up where it left off. That's what
 # the resume() function does. If you want it to resume after a
-# completed wave, the optional keyword arguments are not needed. If
+# completed wave, the optional keyword arguments should not be needed. If
 # you want to resume in the middle of an interrupted wave, you need to
 # pass it the .tmp file it was working through at the time and tell it
 # what point in that .tmp file it had got to (look in the x_follows_y
-# table for the follower in the last-added row).
+# table for the follower in the last-added row). Only the latter works
+# at the moment, however - and I haven't had time to figure out why.
 
 import add_data as ad
 import get_soundcloud_data as gsd
