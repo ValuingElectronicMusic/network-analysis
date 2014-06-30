@@ -10,10 +10,7 @@
 from sqlite3 import connect
 import get_soundcloud_data as gsc
 
-db_path = 'scdb.sqlite'
-
-#def get_table(tableName):
-#    '''Returns a list of the contents of one entire table from the sqlite database.'''
+#db_path = 'scdb_FINAL.sqlite'
 #    try:
 #        conn = connect(db_path)
 #        with conn:
@@ -28,22 +25,25 @@ db_path = 'scdb.sqlite'
 class data_holder():
     'An object to hold data from each of the four tables in the database.'
 
-    def __init__(self):
-        # users = set of SoundCloud user objects
-        self.users = gsc.get_table('users')
-        # tracks = set of SoundCloud track objects which users in "users" have interacted with
-        self.tracks = gsc.get_table('tracks')
+    def __init__(self, db_path):
+        
+        # users = set of tuples representing SoundCloud user objects
+        self.users = gsc.get_table('users', db_path)
+        # tracks = set of tuples representing SoundCloud track objects which users in "users" have interacted with
+        self.tracks = gsc.get_table('tracks', db_path)
         # x_follows_y = set of tuples (x, y) representing follow relationships in SoundCloud where x follows y (and x and y are both in "users")
-        self.x_follows_y = gsc.get_table('x_follows_y')
+        self.x_follows_y = gsc.get_table('x_follows_y', db_path)
         # favourites (NB UK spelling here, US spelling on SoundCloud) 
         #    - set of tuples representing tracks that a user has 'liked'
-        self.favourites = gsc.get_table('favourites')
+        self.favourites = gsc.get_table('favourites', db_path)
         # groups - set of tuples representing SoundCloud groups that a user has joined
-        self.groups = gsc.get_table('groups')
-        # comments - set of SoundCloud comments for a particular track
-        self.comments = gsc.get_table('comments')
-        # playlists - set of SoundCloud users' playlisted tracks
-        self.playlists = gsc.get_table('playlists')
+        self.groups = gsc.get_table('groups', db_path)
+        # group)mem - set of tuples representing SoundCloud group memberships
+        self.group_mem = gsc.get_table('group_mem', db_path)
+        # comments - set of tuples representing SoundCloud comments for a particular track
+        self.comments = gsc.get_table('comments', db_path)
+        # playlists - set of tuples representing SoundCloud users' playlisted tracks
+        self.playlists = gsc.get_table('playlists', db_path)
         
         
 
@@ -73,6 +73,7 @@ class entity_holder():
 #        self.author_recognisers = self.producers & self.followers
 #        self.recognised_recognisers = self.followed & self.followers
 #        self.active_users = self.author_users | self.receivers
+        self.commenters = {x[1] for x in data.comments}
 
 
 def printData(data):
@@ -81,7 +82,7 @@ def printData(data):
     count=0;
     while (count<10 and len(temp_copy)>0):
         popped = temp_copy.pop()
-        print(str(count)+'. user '+str(popped[0])+' '+popped[2])
+        print(str(count)+'. user '+str(popped[0])+' '+popped[1])
         count = count+1
     
     print ''
@@ -100,10 +101,10 @@ def printData(data):
     while (count<10 and len(temp_copy)>0):
         popped = temp_copy.pop()
         try:  # might throw a type error if there are strange characters in the title or genre for a track
-            print(str(count)+'. user id: '+str(popped[1])+', track id: '+str(popped[0])+', title: '+popped[9]+', genre: '+popped[31])
+            print(str(count)+'. user id: '+str(popped[1])+', track id: '+str(popped[0])+', title: '+popped[2]+', genre: '+popped[8])
         except Exception:
             try:
-                print(str(count)+'. user id: '+str(popped[1])+', track id: '+str(popped[0])+', title: '+str(unicode(popped[9].encode('utf-8')))+', genre: '+str(unicode(popped[31]).encode('utf-8')))
+                print(str(count)+'. user id: '+str(popped[1])+', track id: '+str(popped[0])+', title: '+str(unicode(popped[2].encode('utf-8')))+', genre: '+str(unicode(popped[8]).encode('utf-8')))
             except Exception as e2:
                 print(str(count)+'. user id: '+str(popped[1])+', track id: '+str(popped[0])+', title and genre - error in displaying, '+ e2.message)
         count = count+1
@@ -153,7 +154,7 @@ def getUserName(userId,data_users):
 
     for u in data_users:
         if (u[0]==userId):
-            return u[2]
+            return u[1]
 
 
 def followers_of_user(user,data):

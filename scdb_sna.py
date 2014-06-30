@@ -7,8 +7,8 @@
 # 'demonstrate' that shows what some of these things are supposed to
 # do.
 
-import networkx as nx  # @UnresolvedImport
-import pygraphviz as pgv # @UnresolvedImport
+import networkx as nx
+#import pygraphviz as pgv # @UnresolvedImport
 import process_scdb_data as pscd
 
 
@@ -114,10 +114,10 @@ def pagerank_ranking(g,data):
 def in_degree_ranking(g,data):
     return centrality_dict_to_list(g.in_degree(),data)
 
-def demonstrate():
+def demonstrate(db_path = 'scdb_FINAL.sqlite'):
     'This is just there to show how things work. It may take some time.'
 
-    data = pscd.data_holder()
+    data = pscd.data_holder(db_path)
     pscd.printData(data)
     entities = pscd.entity_holder(data)
     pscd.printEntities(entities)
@@ -134,26 +134,39 @@ def demonstrate():
 
     print ''
     print 'Calculating rankings...'
-    i_r = in_degree_ranking(g1,data)
-    print 'Pos\tName\tIndegree (top 20)'
-    for i in range(len(i_r)-1):
-        if (i>=20): 
-            break
-        #print '{}\t{}\t{}'.format(i+1,i_r[i][1],i_r[i][0])
-        print(str(i+1)+'\t'+i_r[i][1]+'\t'+str(i_r[i][0]))
+    try:
+        i_r = in_degree_ranking(g1,data)
+        print 'Pos\tName\tIndegree (top 20)'
+        for i in range(len(i_r)-1):
+            if (i>=20): 
+                break
+            #print '{}\t{}\t{}'.format(i+1,i_r[i][1],i_r[i][0])
+            print(str(i+1)+'\t'+i_r[i][1]+'\t'+str(i_r[i][0]))
+    except Exception as e:###
+        print('Exception thrown for i_r indegree: '+str(e))    
+
+    print ''
+    try:
+        e_r = eigenvector_ranking(g1,data)
+        print 'Pos\tName\tEigenvector (top 20)'
+        for i in range(len(e_r)-1):
+            if (i>=20): 
+                break
+            print(str(i+1)+'\t'+e_r[i][1]+'\t'+str(e_r[i][0]))
+    except Exception as e:###
+        print('Exception thrown for e_r eigenvector: '+str(e))    
     
     print ''
-    e_r = eigenvector_ranking(g1,data)
-    print 'Pos\tName\tEigenvector (top 20)'
-    for i in range(len(e_r)-1):
-        if (i>=20): 
-            break
-        print(str(i+1)+'\t'+e_r[i][1]+'\t'+str(e_r[i][0]))
-    
-    print ''
-    p_r = pagerank_ranking(g1,data)
-    print 'Pos\tName\tPageRank (top 20)'
-    for i in range(len(p_r)-1):
-        if (i>=20): 
-            break
-        print(str(i+1)+'\t'+p_r[i][1]+'\t'+str(p_r[i][0]))
+    try:
+        p_r = pagerank_ranking(g1,data)
+        print 'Pos\tName\tPageRank (top 20)'
+        for i in range(len(p_r)-1):
+            if (i>=20): 
+                break
+            print(str(i+1)+'\t'+p_r[i][1]+'\t'+str(p_r[i][0]))
+    except Exception as e:###
+        print('Exception thrown for p_r pagerank: '+str(e))    
+            
+            
+if __name__ == '__main__':
+    demonstrate('scdb.sqlite')
