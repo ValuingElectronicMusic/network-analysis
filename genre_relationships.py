@@ -29,6 +29,9 @@ Created on Apr 9, 2014
 # SoundCloud. Calculating betweenness centrality for these clusters
 # will help to identify key terms and individuals.
 
+# Edit: this now removes all spaces and hyphens from within strings.
+# Reason is to stop 'hip hop', 'hip-hop', and 'hiphop' appearing as
+# three different things.
 
 import sqlite3
 import re
@@ -40,6 +43,7 @@ import deriv_db
 
 genre_sep = re.compile(r'"|,|/|\\')
 tag_captu = re.compile(r'"(.+?)"|\b(\S+?)\b')
+to_remove = re.compile(r'[ -]')
 
 genre_threshold = 2 
 tag_threshold = 2
@@ -72,7 +76,8 @@ def all_tags(curs):
 
 
 def clean(l):
-    return [i for i in l if len(i)>1 and i not in stop]
+    l2=[to_remove.sub('',i) for i in l]
+    return [i for i in l2 if len(i)>1 and i not in stop]
 
 
 def strings_from_string(s,col):
@@ -155,17 +160,14 @@ def create_gt_table(curssourc,cursderiv,colsourc,tabderiv):
     cursderiv.executemany(sql,add_ranks(l,thresh))
 
 
-def check_tables(cursderiv):
-    genre_table, tag_table = False,False
-    cursderiv.execute("SELECT name FROM sqlite_master WHERE type='table' "
-                      "AND name='genres'")
-    if len (cursderiv.fetchall()) > 0: 
-        genre_table = True
-    cursderiv.execute("SELECT name FROM sqlite_master WHERE type='table' "
-                      "AND name='tags'")
-    if len (cursderiv.fetchall()) > 0: 
-        tag_table = True
-    return genre_table,tag_table
+def check_tables(cursderiv,required_tables):
+    tables_present=[]
+    for t in required_tables:
+        cursderiv.execute("SELECT name FROM sqlite_master WHERE type='table' "
+                          "AND name=?",(t,))
+        tables_present.append(True if len (cursderiv.fetchall()) > 0 
+                              else False)
+    return tables_present
 
 
 def gt_tables(db_source):
@@ -179,6 +181,7 @@ def gt_tables(db_source):
 
 def deriv_user_data(curssourc,cursderiv,users,colsourc,ranktable):
     for user in users:
+        print 'Working with user: '+str(user)
         to_count=strings_from_iterator(user_data(curssourc,user[0],colsourc),
                                        colsourc)
         counted=collections.Counter(to_count).most_common()
@@ -196,23 +199,25 @@ def user_gt_tables(db_source):
     curssourc = connsourc.cursor()
     cursderiv = connderiv.cursor()
 
-    ct = check_tables(cursderiv)
+    required=['genres','tags']
+    ct = check_tables(cursderiv,required)
     if not ct[0] or not ct[1]:
-        if not ct[0]: print 'Could not find genres table.'
-        if not ct[1]: print 'Could not find tags table.'
+        for n,r in enumerate(ct):
+            if not r: print 'Could not find {} table.'.format(required[n])
         print ('Before calling this function, call gt_tables with '
                'path of source database to create necessary tables.')
-        return
+        return False
 
     curssourc.execute('SELECT user_id FROM tracks')
     users=set(curssourc.fetchall())
 
     for colsourc,tabderiv,ranktable in [('genre','user_genres','genres'),
                                         ('tag_list','user_tags','tags')]:
-  
+        print 'Now working with: '+ranktable
         add_data.create_table(cursderiv,tabderiv)
         add_data.insert_deriv_data(cursderiv,tabderiv,
                                    deriv_user_data(curssourc,cursderiv,
                                                    users,colsourc,ranktable))
         connderiv.commit()
 
+    return True

@@ -50,7 +50,8 @@ import re
 import deriv_db
 import add_data
 import guess_language # Needs to be installed from pypi (pip can find it)
-import detect_english2
+import detect_english3
+import sqlite3
 
 # Regexes for identifying things that will be filtered out of comments
 
@@ -104,21 +105,8 @@ def language(text):
 
 
 def englishp(text):
-    '''Looks for a text with at least 50% words to be found in a
-    dictionary of English lemmas; to prevent very occasional
-    identification of French, Spanish, and Italian comments as
-    English, due to loanwords and words that coincidentally have the
-    same spelling, also checks that the text does not have a higher
-    proportion of words to be found in dictionaries of lemmas in those
-    languages. Misidentifies some short English comments as
-    non-English, especially where spellings are non-standard or there
-    are typing errors. Relies on a union of the OpenOffice
-    dictionaries for British and American English - which means we are
-    missing inflected forms (e.g. 'really' and 'fucking') because I
-    haven't figured out how to parse the affix files. Having scanned a
-    couple of thousand positives and negatives, I think I prefer this
-    to the above function using guess-language.'''
-    return detect_english2.englishp(text,0.5)
+    '''Tries to figure out whether the comment is English or not.'''
+    return detect_english3.englishp(text,0.5)
 
 
 def followsp(curssourc,x,y):
@@ -128,7 +116,7 @@ def followsp(curssourc,x,y):
 
 
 def favesp(curssourc,x,t):
-    curssourc.execute('SELECT * FROM favourites WHERE user=? and track=?',(x,t))
+    curssourc.execute('SELECT * FROM favourites WHERE user_id=? and track_id=?',(x,t))
     if curssourc.fetchone(): return True
     else: return False
 
@@ -150,7 +138,10 @@ def comment_data(curssourc,comment_id_list):
 
 def add_comment_datum(cursderiv,comment):
     sql='INSERT INTO comments_corp VALUES (?,?,?,?,?,?,?,?,?,?,?)'
-    cursderiv.execute(sql,comment)
+    try:
+        cursderiv.execute(sql,comment)
+    except sqlite3.IntegrityError:
+        pass
 
 
 def add_comment_data(db_source):
@@ -159,6 +150,9 @@ def add_comment_data(db_source):
     cursderiv=connderiv.cursor()
     corpus_table(cursderiv)
     ids = get_comment_ids(curssourc)
-    for comment in comment_data(curssourc,ids):
+    for n,comment in enumerate(comment_data(curssourc,ids)):
         add_comment_datum(cursderiv,comment)
+        if n % 1000 == 0:
+            connderiv.commit()
+            print 'Committed to db: '+str(n)
     connderiv.commit()

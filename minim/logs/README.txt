@@ -1,0 +1,1 @@
+Folder for logfiles created by forward_waves.py etc
