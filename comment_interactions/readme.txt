@@ -1,0 +1,1 @@
+SQLite databases created by comment_interactions.py for the purpose of creating animations of commenting activity using Gource.

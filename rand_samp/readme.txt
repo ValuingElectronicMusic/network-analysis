@@ -1,0 +1,1 @@
+Folder to store output from rand_samp.py and all_data_one_person.py
