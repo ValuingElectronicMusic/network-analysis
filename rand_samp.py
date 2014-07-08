@@ -16,7 +16,7 @@ import all_data_one_person as adop
 
 
 db_dirpath = 'rand_samp'
-backup_dirpath = 'rand_samp/backup'
+backup_dirpath = os.path.join('rand_samp','backup')
 max_batch = 1000
 
 
