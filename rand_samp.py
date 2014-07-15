@@ -17,7 +17,7 @@ import all_data_one_person as adop
 
 db_dirpath = 'rand_samp'
 backup_dirpath = os.path.join('rand_samp','backup')
-max_batch = 1000
+max_batch = 3000
 
 
 def time_stamp():
@@ -25,7 +25,8 @@ def time_stamp():
 
 
 def create_tables(curs):
-    for tabl in ['users','tracks','comments','x_follows_y','sample']:
+    for tabl in ['users','tracks','comments','x_follows_y',
+                 'ids_tried','sample']:
         ad.create_table(curs,tabl)
 
 
@@ -43,20 +44,29 @@ def collect_batch(curs,batch_size):
 
 #   As of 7 July 2014, there are nearly 103380000 SoundCloud accounts
 
-def collect(sample_size=1,db_name=None):
+def collect(sample_size=1,db_path=None):
     
     start_time=time_stamp()
 
-    if db_name:
-        conn=sqlite3.connect(os.path.join(db_dirpath,db_name+'.sqlite'))
+    if db_path:
+        db_name=os.path.split(db_path)[1]
+        conn=sqlite3.connect(db_path)
         curs=conn.cursor()
     else:
         db_name='rand_samp_'+start_time
-        conn=sqlite3.connect(os.path.join(db_dirpath,db_name+'.sqlite'))
+        db_path=os.path.join(db_dirpath,db_name+'.sqlite')
+        conn=sqlite3.connect(dbpath)
         curs=conn.cursor()
         create_tables(curs)
 
-    collected, non_ids = 0,0
+    db_dir = os.path.split(db_path)[0]
+    db_backup_dir = os.path.join(db_dir,'db_backup')
+    if not os.path.exists(db_backup_dir):
+        os.makedirs(db_backup_dir)
+
+    non_ids = 0
+    curs.execute('SELECT id FROM sample')
+    collected = len(curs.fetchall())
 
     while collected < sample_size:
         uncollected = sample_size - collected
@@ -67,11 +77,11 @@ def collect(sample_size=1,db_name=None):
         non_ids += collection[1]
         print '{} collected.'.format(collected)
         print 'Backing up...'
-        shutil.copyfile(os.path.join(db_dirpath,
-                                     db_name+'.sqlite'),
-                        os.path.join(backup_dirpath,
+        shutil.copyfile(db_path,
+                        os.path.join(db_backup_dir,
                                      db_name+'_back_'+time_stamp()+'.sqlite'))
-        print "Pausing 3 minutes. If you've been planning to interrupt, now's your chance."
+        print ("Pausing 3 minutes. If you've been planning to interrupt, "
+               "now's your chance.")
         time.sleep(180)
 
     return collected, non_ids, start_time, time_stamp()

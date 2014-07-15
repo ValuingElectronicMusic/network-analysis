@@ -143,13 +143,14 @@ def collect_for_user(curs,user):
 
 def collect(curs,user):
     try:
-        curs.execute('INSERT INTO sample (id) VALUES(?)',(user,))
+        curs.execute('INSERT INTO ids_tried (id) VALUES(?)',(user,))
     except sqlite3.IntegrityError as ie:
         return False
 
     ud=user_data(user)
     if not ud: return False
 
+    curs.execute('INSERT INTO sample (id) VALUES(?)',(user,))
     insert_into_table(curs,'users',ud)
     collect_for_user(curs,user)
 

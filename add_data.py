@@ -26,7 +26,7 @@ followers_count INTEGER, followings_count INTEGER,
 website TEXT, website_title TEXT, 
 avatar_url TEXT, discogs_name TEXT, myspace_name TEXT'''
 
-tracks_table_creator='''id INTEGER PRIMARY KEY, user_id TEXT,  
+tracks_table_creator='''id INTEGER PRIMARY KEY, user_id INTEGER,  
 title TEXT, permalink_url TEXT, description TEXT, tag_list TEXT, state TEXT,
 duration INTEGER, genre TEXT,  key_signature TEXT, bpm INTEGER,  
 original_content_size INTEGER, original_format TEXT, track_type TEXT,    
@@ -63,6 +63,7 @@ track_producer_id INTEGER, PRIMARY KEY(playlist_id, track_id)'''
 
 # The following table creators are for the _deriv database.
 # TODO AJ: I think this should go somewhere separate? Not currently used?
+# DA: They're used in genre_relationships.py and comments_corp.py.
 
 gentag_table_creator='''string TEXT PRIMARY KEY, frequency INTEGER,
 rank INTEGER'''
@@ -79,20 +80,23 @@ creator_follows_commenter INTEGER, commenter_faves_track INTEGER,
 track_genre TEXT, track_tag_list TEXT, language TEXT, datetime TEXT, filtered_text TEXT'''
 
 # Extra table for storing user ids that have been used in the random sample
+# Note: used twice
 
 sample_table_creator='''id INTEGER PRIMARY KEY'''
 
 # Here's the dictionary containing all the table creators.
 
 tables = {'tracks':tracks_table_creator, 'users':users_table_creator, 
-'x_follows_y':x_follows_y_table_creator, 'favourites':favourites_table_creator, 
+'x_follows_y':x_follows_y_table_creator, 
+'favourites':favourites_table_creator, 
 'group_mem':group_mem_table_creator, 'groups':groups_table_creator,   
 'comments':comments_table_creator, 'playlists':playlists_table_creator,
 'genres':gentag_table_creator, 'tags':gentag_table_creator,
+'genre_popularity':gentag_table_creator, 'tag_popularity':gentag_table_creator,
 'user_genres':user_gentag_table_creator, 'user_tags':user_gentag_table_creator,
 'x_faves_work_of_y':x_faves_work_of_y_table_creator,
 'comments_corp':comments_corp_table_creator,
-'sample':sample_table_creator}
+'sample':sample_table_creator, 'ids_tried':sample_table_creator}
 
 # Here are sets containing table names; distinguish deriv database 
 # from original.
