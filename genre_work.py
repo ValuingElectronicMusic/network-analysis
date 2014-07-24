@@ -167,7 +167,61 @@ def output_corpora(curs,dict,path,single_file=True):
         save_corpus(comments,path,g+'_corpus',single_file)
 
 
-def do_everything(db,single_file_corpora=True):
+def output_follow_stats(dict,path):
+    all_results=open(os.path.join(path,'all_follows_by_genre.csv'),'wb')
+    all_res_w=csv.writer(all_results,dialect='excel')
+    for gen_com in the_genres:
+        com_results=open(os.path.join(path,'follows_by_genre_in_'+gen_com[0]+
+                                      '_community.csv'),'wb')
+        com_res_w=csv.writer(com_results,dialect='excel')
+        for genre in gen_com[1]:
+            gen_results=open(os.path.join(path,'follows_by_genre_in_'+genre+
+                                          '_genre.csv'),'wb')
+            gen_res_w=csv.writer(gen_results,dialect='excel')
+            all_res_w.writerows(dict[genre])
+            com_res_w.writerows(dict[genre])
+            gen_res_w.writerows(dict[genre])
+            gen_results.close()
+        com_results.close()
+    all_results.close()
+
+
+def percentages(a):
+    b=[]
+    for i in a[1:]:
+        if i:
+            b.append(int(i / float(a[0]) * 100 + 0.5))
+        else:
+            b.append(0)
+    return b
+
+
+def following_within_genre(curssourc,cursderiv,gen_dict):
+    everyone_genre=filled_genre_dict(users_by_genre,cursderiv)
+    everyone_gen_com=genre_community_od(everyone_genre)
+    everyone=set([])
+    results_by_gen=collections.OrderedDict()
+    for v in everyone_gen_com.values():
+        everyone.update(v)
+    for genre in gen_dict.keys():
+        community=[c[0] for c in the_genres if genre in c[1]][0]
+        results=[]
+        for user in gen_dict[genre]:
+            sql='SELECT followed FROM x_follows_y WHERE follower=?'
+            total={f[0] for f in curssourc.execute(sql,(user,))}
+            with_genres=total & everyone
+            this_com=with_genres & everyone_gen_com[community]
+            this_gen=this_com & everyone_genre[genre]
+            figures=[len(total),len(with_genres),len(this_com),len(this_gen)]
+            results.append(figures+percentages(figures[1:]))
+        results_by_gen[genre]=results
+    return results_by_gen
+
+
+def do_everything(db_source,single_file_corpora=True):
+    connsourc=sqlite3.connect(db_source)
+    curssourc=connsourc.cursor()
+    db=db_source[:-7]+'_deriv.sqlite'
     conn=sqlite3.connect(db)
     curs=conn.cursor()
     db_path=os.path.split(db)
@@ -179,10 +233,12 @@ def do_everything(db,single_file_corpora=True):
                                              time.strftime('%Y%m%d_%H%M')))
     stat_path=os.path.join(base_path,'statistics')
     corp_path=os.path.join(base_path,'corpora')
+    foll_path=os.path.join(base_path,'follows')
 
     os.mkdir(base_path)
     os.mkdir(stat_path)
     os.mkdir(corp_path)
+    os.mkdir(foll_path)
     os.mkdir(os.path.join(corp_path,'g'))
     os.mkdir(os.path.join(corp_path,'gc'))
 
@@ -214,10 +270,15 @@ def do_everything(db,single_file_corpora=True):
                      dict_name+'_by_genre_community')
 
     for dict_name in data.keys():
-        print 'Outputting English language corpus to {}'.format(corp_path)
+        print 'Writing English language corpus to {}'.format(corp_path)
         output_corpora(curs,data[dict_name]['eng_comments'],
                        os.path.join(corp_path,dict_name),
                        single_file_corpora)
 
+    print 'Checking follow relationships vis a vis genre...'
+    data['f']=following_within_genre(curssourc,curs,
+                                     data['g']['uploaders'])
+    print 'Writing follow data within {}'.format(foll_path)
+    output_follow_stats(data['f'],foll_path)
+
     return data
-    
