@@ -12,12 +12,25 @@ import random
 import shutil
 import os.path
 import add_data as ad
-import all_data_one_person as adop
+import all_data_one_entity as adoe
 
 
 db_dirpath = 'rand_samp'
 backup_dirpath = os.path.join('rand_samp','backup')
 max_batch = 3000
+
+
+collect_funcs = {'users':adoe.collect_user,
+                 'tracks':adoe.collect_track,
+                 'comments':adoe.collect_comment}
+maxnums = {'users':104000000,
+           'tracks':170000000,
+           'comments':195000000}
+
+
+#   As of 7 July 2014, there've been nearly 103380000 SoundCloud accounts
+#   As of 28 July 2014, there've been between 160500000 and 160600000 tracks
+#   As of 28 July 2014, there've been between 194000000 and 195000000 comments
 
 
 def time_stamp():
@@ -30,21 +43,19 @@ def create_tables(curs):
         ad.create_table(curs,tabl)
 
 
-def collect_batch(curs,batch_size):
+def collect_batch(curs,batch_size,maxnum,collect_func):
     collected, non_ids = 0,0
     while collected < batch_size:
-        try_id = random.randint(0,104000000)
+        try_id = random.randint(0,maxnum)
         print 'Trying '+str(try_id)
-        if adop.collect(curs,try_id): 
+        if collect_func(curs,try_id): 
             collected += 1
         else: 
             non_ids += 1
     return collected, non_ids
 
 
-#   As of 7 July 2014, there are nearly 103380000 SoundCloud accounts
-
-def collect(sample_size=1,db_path=None):
+def collect(sample_size=1,db_path=None,to_sample='users'):
     
     start_time=time_stamp()
 
@@ -53,9 +64,9 @@ def collect(sample_size=1,db_path=None):
         conn=sqlite3.connect(db_path)
         curs=conn.cursor()
     else:
-        db_name='rand_samp_'+start_time
+        db_name='{}_rand_samp_{}'.format(to_sample,start_time)
         db_path=os.path.join(db_dirpath,db_name+'.sqlite')
-        conn=sqlite3.connect(dbpath)
+        conn=sqlite3.connect(db_path)
         curs=conn.cursor()
         create_tables(curs)
 
@@ -71,7 +82,9 @@ def collect(sample_size=1,db_path=None):
     while collected < sample_size:
         uncollected = sample_size - collected
         batch_size = (uncollected if uncollected <= max_batch else max_batch)
-        collection=collect_batch(curs,batch_size)
+        collection=collect_batch(curs,batch_size,
+                                 maxnums[to_sample],
+                                 collect_funcs[to_sample])
         conn.commit()
         collected += collection[0]
         non_ids += collection[1]
@@ -85,3 +98,19 @@ def collect(sample_size=1,db_path=None):
         time.sleep(180)
 
     return collected, non_ids, start_time, time_stamp()
+
+
+def seek_limit(resource_func,start_at,stop_at=0):
+    '''resource_func should be adoe.user_data, adoe.track_data, or
+    adoe.comment_data'''
+    
+    current_num = start_at
+    while current_num > stop_at:
+        a=resource_func(current_num)
+        if a:
+            print 'A very palpable hit!'
+            return current_num
+        else:
+            current_num -= random.randint(0,100)
+
+    return None

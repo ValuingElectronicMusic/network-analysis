@@ -71,9 +71,9 @@ def track_data(track_id):
 
 
 def comment_data(comment_id):
-    cd=get_data('/comments/'+str(track_id))
+    cd=get_data('/comments/'+str(comment_id))
     if cd:
-        return td.obj
+        return cd.obj
     else:
         return False
 
@@ -88,10 +88,6 @@ def user_followers(user_id):
 
 def tracks_by_user(user_id):
     return get_data('/users/'+str(user_id)+'/tracks')
-
-
-def track_data(track_id):
-    return gsd.client.get('/tracks/'+str(track_id)).obj
 
 
 def comments_on_track(track_id):
@@ -184,5 +180,29 @@ def collect_track(curs,track):
     if tu: insert_into_table(curs,'users',tu)
 
     return True
+
+
+def collect_comment(curs,comment):
+    try:
+        curs.execute('INSERT INTO ids_tried (id) VALUES(?)',(comment,))
+    except sqlite3.IntegrityError as ie:
+        return False
+
+    cd=comment_data(comment)
+    if not cd: return False
+    curs.execute('INSERT INTO sample (id) VALUES(?)',(comment,))
+    insert_into_table(curs,'comments',cd)
+
+    cm=user_data(cd['user_id'])
+    if cm: insert_into_table(curs,'users',cm)
+
+    td=track_data(cd['track_id'])
+    if td: insert_into_table(curs,'tracks',td)
+
+    tu=user_data(td['user_id'])
+    if tu: insert_into_table(curs,'users',tu)
+
+    return True
+
 
 
