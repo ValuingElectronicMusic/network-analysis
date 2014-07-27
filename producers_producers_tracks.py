@@ -58,10 +58,10 @@ def go_for_it(to_process_filepath,db_path):
     if not os.path.exists(processed_filepath):
         f=open(processed_filepath,'w')
         f.close()
-    with open(processed_filepath,'r') as processed:
-        for user in processed:
-            user=user.strip('\n')
-            if user: users.remove(int(user))
+    processed=open(processed_filepath,'r')
+    for user in processed:
+        user=user.strip('\n')
+        if user: users.remove(int(user))
     print 'There are {} users to munch through. Here we go!'.format(len(users))
     for n,user in enumerate(users):
         if n % 10000 == 0:
@@ -71,6 +71,7 @@ def go_for_it(to_process_filepath,db_path):
             processed=open(processed_filepath,'a')
         get_tracks(curs,user)
         processed.write('{}\n'.format(user))
+        processed.flush() # Otherwise, restart becomes unreliable
         conn.commit()
         if n < 10 or n+1 % 100 == 0: print '{} done.'.format(n+1)
         if n == 10: print 'Only reporting hundreds from now on.'
