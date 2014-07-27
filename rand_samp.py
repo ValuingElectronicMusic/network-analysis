@@ -47,7 +47,6 @@ def collect_batch(curs,batch_size,maxnum,collect_func):
     collected, non_ids = 0,0
     while collected < batch_size:
         try_id = random.randint(0,maxnum)
-        print 'Trying '+str(try_id)
         if collect_func(curs,try_id): 
             collected += 1
         else: 
