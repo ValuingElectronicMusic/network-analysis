@@ -15,6 +15,7 @@ import sqlite3
 import collections
 import time
 
+time_delay = 2
 
 def user_dicts(resourcelist):
     return {u.obj['id']:u.obj for u in resourcelist}
@@ -203,6 +204,3 @@ def collect_comment(curs,comment):
     if tu: insert_into_table(curs,'users',tu)
 
     return True
-
-
-

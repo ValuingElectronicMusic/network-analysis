@@ -17,7 +17,7 @@ import all_data_one_entity as adoe
 
 db_dirpath = 'rand_samp'
 backup_dirpath = os.path.join('rand_samp','backup')
-max_batch = 3000
+max_batch = 500
 
 
 collect_funcs = {'users':adoe.collect_user,
@@ -92,9 +92,10 @@ def collect(sample_size=1,db_path=None,to_sample='users'):
         shutil.copyfile(db_path,
                         os.path.join(db_backup_dir,
                                      db_name+'_back_'+time_stamp()+'.sqlite'))
-        print ("Pausing 3 minutes. If you've been planning to interrupt, "
+        print ("Pausing 20s. If you've been planning to interrupt, "
                "now's your chance.")
-        time.sleep(180)
+        time.sleep(20)
+        print 'Stopped pausing now.'
 
     return collected, non_ids, start_time, time_stamp()
 
