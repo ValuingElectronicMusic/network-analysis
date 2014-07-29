@@ -18,6 +18,7 @@ import all_data_one_entity as adoe
 db_dirpath = 'rand_samp'
 backup_dirpath = os.path.join('rand_samp','backup')
 max_batch = 500
+batches_before_backup = 5
 
 
 collect_funcs = {'users':adoe.collect_user,
@@ -77,8 +78,10 @@ def collect(sample_size=1,db_path=None,to_sample='users'):
     non_ids = 0
     curs.execute('SELECT id FROM sample')
     collected = len(curs.fetchall())
+    batches = 0
 
     while collected < sample_size:
+        start=time.time()
         uncollected = sample_size - collected
         batch_size = (uncollected if uncollected <= max_batch else max_batch)
         collection=collect_batch(curs,batch_size,
@@ -87,11 +90,17 @@ def collect(sample_size=1,db_path=None,to_sample='users'):
         conn.commit()
         collected += collection[0]
         non_ids += collection[1]
+        batches += 1
         print '{} collected.'.format(collected)
-        print 'Backing up...'
-        shutil.copyfile(db_path,
-                        os.path.join(db_backup_dir,
-                                     db_name+'_back_'+time_stamp()+'.sqlite'))
+        print ('Time elapsed for '
+               'this batch: {}'.format(int(time.time()-start)))
+        if batches >= batches_before_backup or collected >= sample_size:
+            print 'Backing up...'
+            shutil.copyfile(db_path,
+                            os.path.join(db_backup_dir,
+                                         db_name+'_back_'
+                                         +time_stamp()+'.sqlite'))
+            batches = 0
         print ("Pausing 20s. If you've been planning to interrupt, "
                "now's your chance.")
         time.sleep(20)
