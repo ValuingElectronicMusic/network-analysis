@@ -21,6 +21,7 @@ todo
 *.csv
 *.csv#
 *.zip
+*.gz
 
 *.txt
 
