@@ -3,14 +3,15 @@ import shutil
 import time
 import os.path
 import add_data as ad
-import all_data_one_person as adop
+import all_data_one_entity as adoe
 import genre_relationships_sample as grs
 
 
 def get_tracks(curs,user):
-    tracks=adop.tracks_by_user(user)
-    for track in tracks:
-        adop.insert_into_table(curs,'tracks',tracks[track])
+    tracks=adoe.tracks_by_user(user)
+    if tracks:
+        for track in tracks:
+            adoe.insert_into_table(curs,'tracks',tracks[track])
 
 
 def followed_by_sample_producers(curssourc,cursderiv):
@@ -46,7 +47,7 @@ def backup(db_path):
                     get_processed_filepath(backup_path))
 
 
-def go_for_it(to_process_filepath,db_path):
+def go_for_it(to_process_filepath,db_path,to_backup=True):
     conn=sqlite3.connect(db_path)
     curs=conn.cursor()
     if not grs.check_tables(curs,['tracks'])[0]:
@@ -62,9 +63,11 @@ def go_for_it(to_process_filepath,db_path):
     for user in processed:
         user=user.strip('\n')
         if user: users.remove(int(user))
+    processed.close()
+    processed=open(processed_filepath,'a')
     print 'There are {} users to munch through. Here we go!'.format(len(users))
     for n,user in enumerate(users):
-        if n % 10000 == 0:
+        if to_backup == True and n % 10000 == 0:
             print 'Backing up...'
             processed.close()
             backup(db_path)
@@ -75,9 +78,10 @@ def go_for_it(to_process_filepath,db_path):
         conn.commit()
         if n < 10 or n+1 % 100 == 0: print '{} done.'.format(n+1)
         if n == 10: print 'Only reporting hundreds from now on.'
-    print 'Backing up...'
-    processed.close()
-    backup(db_path)
+    if to_backup: 
+        print 'Backing up...'
+        processed.close()
+        backup(db_path)
     print 'And we\'re done.'
     return True
 

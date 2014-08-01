@@ -14,6 +14,7 @@ import genre_relationships as gr
 import sqlite3
 import collections
 import time
+import outward_waves
 
 time_delay = 2
 
@@ -22,10 +23,11 @@ def user_dicts(resourcelist):
 
 
 def get_data(req):
-    '''Mostly copied from forward_waves.py'''
+    '''Mostly copied from outward_waves.py'''
     collected = {}
     start_at = 0
     batch_length = 199
+    mouthful = 199
     while batch_length > 198:
         count = 1
         while True:
@@ -35,15 +37,19 @@ def get_data(req):
                 else:
                     batch=user_dicts(gsd.client.get(req,
                                                     order='created_at', 
-                                                    limit=199,
+                                                    limit=mouthful,
                                                     offset=start_at))
                     collected.update(batch)
                     batch_length = len(batch)
-                    start_at += 199
+                    start_at += mouthful
                     break
             except Exception as e:
-                if str(e)[:3]=='404': 
+                if str(e)[:3]=='404': # does not exist 
                     return None
+
+                if str(e)[:3]=='500': # too much data for server
+                    mouthful = mouthful / 2
+                    if mouthful < 1: mouthful = 1
 
                 warning = ('ERROR in client.get() - problem connecting to '
                            'SoundCloud API, error '+str(e)+' for '
