@@ -18,7 +18,7 @@ import all_data_one_entity as adoe
 db_dirpath = 'rand_samp'
 backup_dirpath = os.path.join('rand_samp','backup')
 max_batch = 500
-batches_before_backup = 5
+batches_before_backup = 100
 
 
 collect_funcs = {'users':adoe.collect_user,
@@ -40,7 +40,7 @@ def time_stamp():
 
 def create_tables(curs):
     for tabl in ['users','tracks','comments','x_follows_y',
-                 'ids_tried','sample']:
+                 'ids_tried','track_ids_tried','comment_ids_tried','sample']:
         ad.create_table(curs,tabl)
 
 

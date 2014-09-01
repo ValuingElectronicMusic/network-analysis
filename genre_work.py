@@ -62,9 +62,8 @@ def comments_by_genre(curs,target_genre,user_sample=False,English=True):
 
 
 def users_by_genre(curs,target_genre,user_sample=False):
-    table=('user_genres' if user_sample else 'all_user_genres')
-    sql=('SELECT user,most_used FROM {} WHERE most_used '
-         'IS NOT NULL'.format(table))
+    sql=('SELECT user,most_used FROM user_genres WHERE most_used '
+         'IS NOT NULL')
     if user_sample:
         return {u[0] for u in curs.execute(sql) if u[0] in user_sample
                 and u[1]==target_genre}

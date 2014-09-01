@@ -141,6 +141,7 @@ def n_most_common(counted,n,cursderiv,ranktable):
 
 
 def add_ranks(l,threshold):
+    if not l: return [('','',0)]
     counted = collections.Counter(l).most_common()
     nums=list(reversed(sorted(set(zip(*counted)[1]))))
     return [(c[0],c[1],nums.index(c[1])+1) for c in counted if c[1]>=threshold]

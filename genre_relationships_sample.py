@@ -36,7 +36,6 @@ Created on Apr 9, 2014
 # Edit: also had to include a dictionary of synonyms for the most
 # common cases (r&b/rnb, d&b/dnb/drumandbass/drum&bass)
 
-import sqlite3
 import re
 import collections
 import add_data
@@ -55,6 +54,8 @@ synonyms = {'rnb':'r&b',
 genre_threshold = 2 
 tag_threshold = 2
 
+user_batch = 1000
+
 f = open('stopwords') # extracted from NLTK
 stop = cPickle.load(f)
 f.close()
@@ -63,18 +64,7 @@ def flatten(l):
     return [i for subl in l for i in subl]
 
 
-def user_data(curs,user,col):
-    # Apologies for combining a string operation with the proper
-    # SQLite insertion method (with ?) - for some reason, when I try
-    # to insert a column name with ?, it thinks this is a value that I
-    # want it to return. The database is safe so this isn't the
-    # security issue that it might have been - but I'll change it once
-    # I figure out how.
-    return curs.execute('SELECT {} FROM tracks WHERE user_id=?'.format(col),(user,))
-
-
 def all_genres(curs):
-    curs.execute('SELECT * FROM sqlite_master')
     return curs.execute('SELECT user_id, genre FROM tracks')
 
 
@@ -99,11 +89,14 @@ def strings_from_string(s,col):
     else: print 'Unrecognised source column name: {}'.format(col)
 
 
-def strings_from_iterator(ite,col):
-    strings=[]
-    for i in ite:
-        if i[0]: strings.extend(strings_from_string(i[0],col))
-    return strings
+def split_gt_string(gt_string):
+    return [s.strip() for s in gt_string.split('|')]
+
+
+def process_track_datum(datum):
+    return (datum[0:5]+(' | '.join(strings_from_string(datum[5],'tag_list')),)+
+            datum[6:8]+(' | '.join(strings_from_string(datum[8],'genre')),)+
+            datum[9:])
 
 
 def n_from_list(l,n,cursderiv,ranktable):
@@ -151,20 +144,58 @@ def n_most_common(counted,n,cursderiv,ranktable):
 
 def add_ranks(l,threshold):
     l=[i for i in l if i]
+    if not l: return [('','',0)]
     counted = collections.Counter(l).most_common()
     nums=list(reversed(sorted(set(zip(*counted)[1]))))
     return [(c[0],c[1],nums.index(c[1])+1) for c in counted if c[1]>=threshold]
 
 
-def create_gt_table(curssourc,cursderiv,colsourc,tabderiv,users):
+def copy_sample_table(curssourc,cursderiv):
+    add_data.create_table(cursderiv,'sample')
+    sql1='SELECT id FROM sample'
+    sql2='INSERT INTO sample VALUES(?)'
+    cursderiv.executemany(sql2,curssourc.execute(sql1))
+
+
+def create_uploaders_table(cursderiv):
+    add_data.create_table(cursderiv,'uploaders')
+    sql1='SELECT user_id FROM tracks'
+    sql2='INSERT INTO uploaders VALUES(?)'
+    cursderiv.execute(sql1)
+    ups=set(cursderiv.fetchall())
+    cursderiv.executemany(sql2,ups)
+    
+
+def create_sample_uploaders_table(cursderiv):
+    add_data.create_table(cursderiv,'sample_uploaders')
+    sql1='SELECT id FROM sample'
+    sql2='SELECT id FROM uploaders'
+    sql3='INSERT INTO sample_uploaders VALUES(?)'
+    cursderiv.execute(sql1)
+    smp=set(cursderiv.fetchall())
+    cursderiv.execute(sql2)
+    smp_upl=smp & set(cursderiv.fetchall())
+    cursderiv.executemany(sql3,smp_upl)
+
+
+def copy_and_process_tracks_table(curssourc,cursderiv):
+    add_data.create_table(cursderiv,'tracks')
+    sql1='SELECT * FROM tracks'
+    sql2='INSERT INTO tracks VALUES({})'.format(('?,'*40)[:-1])
+    cursderiv.executemany(sql2,
+                          (process_track_datum(t) 
+                           for t in curssourc.execute(sql1)))
+
+
+def create_gt_table(cursderiv,colsourc,tabderiv,users):
     add_data.create_table(cursderiv,tabderiv)
-    entries = (all_genres(curssourc) if tabderiv=='genres' 
-               else all_tags(curssourc))
+    entries = (all_genres(cursderiv) if tabderiv=='genres' 
+               else all_tags(cursderiv))
     l = []
     for e in entries:
         if users and e[0] not in users: pass
         elif e[1]:
-            l.extend(strings_from_string(e[1],colsourc))
+            l.extend(split_gt_string(e[1]))
     sql=('INSERT INTO {} (string,frequency,rank) '
          'VALUES(?,?,?)'.format(tabderiv))
     thresh = (genre_threshold if tabderiv == 'genres' else tag_threshold)
@@ -181,75 +212,103 @@ def check_tables(cursderiv,required_tables):
     return tables_present
 
 
+def copy_tables_across(db_source):
+    connsourc,connderiv = deriv_db.connect_databases(db_source)
+    curssourc = connsourc.cursor()
+    cursderiv = connderiv.cursor()
+    copy_sample_table(curssourc,cursderiv)
+    copy_and_process_tracks_table(curssourc,cursderiv)
+    create_uploaders_table(cursderiv)
+    create_sample_uploaders_table(cursderiv)
+    connderiv.commit()
+
+
 def gt_tables(db_source,sample_only=False):
     connsourc,connderiv = deriv_db.connect_databases(db_source)
     curssourc = connsourc.cursor()
     cursderiv = connderiv.cursor()
     if sample_only:
-        curssourc.execute('SELECT id FROM sample')
-        users={c[0] for c in curssourc.fetchall()}
+        cursderiv.execute('SELECT id FROM sample')
+        users=set(curssourc.fetchall())
     else: users=None
     for colsourc,table in [('genre','genres'),('tag_list','tags')]:
-        create_gt_table(curssourc,cursderiv,colsourc,table,users)
+        create_gt_table(cursderiv,colsourc,table,users)
         connderiv.commit()
 
 
-def deriv_user_data(curssourc,cursderiv,users,colsourc,ranktable):
-    for n,user in enumerate(users):
-        if n % 500 == 0: 
-            print '{} users worked through'.format(n)
-            print 'Now working with user: {}'.format(user)
-        to_count=strings_from_iterator(user_data(curssourc,user[0],colsourc),
-                                       colsourc)
-        counted=collections.Counter(to_count).most_common()
-        mcstring = unicode(n_most_common(counted,
-                                         1,cursderiv,ranktable)[0])
-        cstrings = ' | '.join(n_most_common(counted,
-                                            3,cursderiv,ranktable))
-        str_counted= ' | '.join([u'{}, {}'.format(c[0],c[1]) 
-                                 for c in counted])
-        yield user[0],str_counted,mcstring,cstrings
+def deriv_user_data(all_tracks,cursderiv,users,colsourc,ranktable):
+    for user in users:
+        try:
+            to_count=all_tracks[user[0]]
+            counted=collections.Counter(to_count).most_common()
+            mcstring = unicode(n_most_common(counted,
+                                             1,cursderiv,ranktable)[0])
+            cstrings = ' | '.join(n_most_common(counted,
+                                                3,cursderiv,ranktable))
+            str_counted= ' | '.join([u'{}, {}'.format(c[0],c[1]) 
+                                     for c in counted])
+            yield user[0],str_counted,mcstring,cstrings
+        except KeyError:
+            yield user[0],None,None,' | | '
 
 
-def user_gt_tables(db_source, sample_only=False):
+def user_gt_tables(db_source, sample_only=False,tags_too=False):
     connsourc,connderiv = deriv_db.connect_databases(db_source)
     curssourc = connsourc.cursor()
     cursderiv = connderiv.cursor()
 
-    required=['genres','tags']
-    ct = check_tables(cursderiv,required)
-    if not ct[0] or not ct[1]:
-        for n,r in enumerate(ct):
-            if not r: print 'Could not find {} table.'.format(required[n])
-        print ('Before calling this function, call gt_tables with '
-               'path of source database to create necessary tables.')
+    required=['sample','tracks','uploaders','genres','tags']
+    if False in check_tables(cursderiv,required):
         return False
-
-    curssourc.execute('SELECT id FROM sample')
-    sample=set(curssourc.fetchall())
-    curssourc.execute('SELECT user_id FROM tracks')
-    uploaders=set(curssourc.fetchall())
-
-    if sample_only: users=sample & uploaders
-    else: users=uploaders
+   
+    if sample_only: 
+        cursderiv.execute('SELECT id FROM sample')
+        users=cursderiv.fetchall()
+        cursderiv.execute('SELECT id FROM uploaders')
+        users=list(set(users).intersection(set(cursderiv.fetchall())))
+    else: 
+        cursderiv.execute('SELECT id FROM uploaders')
+        users=cursderiv.fetchall()
 
     print '{} users to process'.format(len(users))
 
-    for colsourc,tabderiv,ranktable in [('genre','user_genres','genres'),
-                                        ('tag_list','user_tags','tags')]:
+    to_do = [('genre','user_genres','genres')]
+    if tags_too: to_do.append(('tag_list','user_tags','tags'))
+
+    for colsourc,tabderiv,ranktable in to_do:
         print 'Now working with: '+ranktable
         add_data.create_table(cursderiv,tabderiv)
-        add_data.insert_deriv_data(cursderiv,tabderiv,
-                                   deriv_user_data(curssourc,cursderiv,
-                                                   users,colsourc,ranktable))
-        connderiv.commit()
+        print 'Fresh {} table created.'.format(colsourc)
+        print 'Getting track data.'
+        tracks={}
+        sql='SELECT user_id,{} FROM tracks'.format(colsourc)
+        for t in cursderiv.execute(sql):
+            l=split_gt_string(t[1])
+            if l[0]:
+                try:
+                    tracks[t[0]].extend(l)
+                except KeyError:
+                    tracks[t[0]]=l
+        print 'Data loaded in memory.'
+        done=0
+        while done < len(users):
+            to_collect = (user_batch if done+user_batch <= len(users)
+                          else len(users)-done)
+            this_batch=users[done:done+to_collect]
+            print 'Starting on a batch of {} users.'.format(to_collect)
+            add_data.insert_deriv_data(cursderiv,tabderiv,
+                                       deriv_user_data(tracks,
+                                                       cursderiv,this_batch,
+                                                       colsourc,ranktable))
+            connderiv.commit()
+            done+=to_collect
+            print '{} done. {} remain.'.format(done,len(users)-done)
 
     return True
 
 
-def user_frequency_tables(db_source, sample_only=True):
+def user_frequency_tables(db_source, sample=True, tags_too=False):
     connsourc,connderiv = deriv_db.connect_databases(db_source)
-    curssourc = connsourc.cursor()
     cursderiv = connderiv.cursor()
 
     required=['user_genres','user_tags']
@@ -261,13 +320,16 @@ def user_frequency_tables(db_source, sample_only=True):
                'path of source database to create necessary tables.')
         return False
 
-    curssourc.execute('SELECT id FROM sample')
-    sample=[c[0] for c in curssourc.fetchall()]
+    if sample:
+        cursderiv.execute('SELECT id FROM sample')
+        sample={c[0] for c in cursderiv.fetchall()}
 
-    for usertab,poptab in [('user_genres','genre_popularity'),
-                           ('user_tags','tag_popularity')]:
+    to_do = [('user_genres','genre_popularity')]
+    if tags_too: to_do.append(('user_tags','tag_popularity'))
+
+    for usertab,poptab in to_do:
         cursderiv.execute('SELECT user,most_used FROM {}'.format(usertab))
-        if sample_only:
+        if sample:
             strings=[s[1] for s in cursderiv.fetchall() if s[0] in sample]
         else:
             strings=[s[1] for s in cursderiv.fetchall()]
@@ -277,34 +339,3 @@ def user_frequency_tables(db_source, sample_only=True):
              'VALUES(?,?,?)'.format(poptab))
         cursderiv.executemany(sql,add_ranks(strings,1))
         connderiv.commit()
-
-
-def copy_sample_table(curssourc,cursderiv):
-    add_data.create_table(cursderiv,'sample')
-    sql1='SELECT id FROM sample'
-    sql2='INSERT INTO sample VALUES(?)'
-    cursderiv.executemany(sql2,curssourc.execute(sql1))
-    
-
-def process_track_datum(datum):
-    return (datum[0:5]+(' | '.join(strings_from_string(datum[5],'tag_list')),)+
-            datum[6:8]+(' | '.join(strings_from_string(datum[8],'genre')),)+
-            datum[9:])
-
-
-def copy_and_process_tracks_table(curssourc,cursderiv):
-    add_data.create_table(cursderiv,'tracks')
-    sql1='SELECT * FROM tracks'
-    sql2='INSERT INTO tracks VALUES({})'.format(('?,'*40)[:-1])
-    cursderiv.executemany(sql2,
-                          (process_track_datum(t) 
-                           for t in curssourc.execute(sql1)))
-
-
-def copy_tables_across(db_source):
-    connsourc,connderiv = deriv_db.connect_databases(db_source)
-    curssourc = connsourc.cursor()
-    cursderiv = connderiv.cursor()
-    copy_sample_table(curssourc,cursderiv)
-    copy_and_process_tracks_table(curssourc,cursderiv)
-    connderiv.commit()

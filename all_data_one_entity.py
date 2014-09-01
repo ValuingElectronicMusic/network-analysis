@@ -174,13 +174,12 @@ def collect_user(curs,user):
 
 def collect_track(curs,track):
     try:
-        curs.execute('INSERT INTO ids_tried (id) VALUES(?)',(track,))
+        curs.execute('INSERT INTO track_ids_tried (id) VALUES(?)',(track,))
     except sqlite3.IntegrityError as ie:
         return False
 
     td=track_data(track)
     if not td: return False
-    curs.execute('INSERT INTO sample (id) VALUES(?)',(track,))
     insert_into_table(curs,'tracks',td)
 
     tu=user_data(td['user_id'])
@@ -191,13 +190,12 @@ def collect_track(curs,track):
 
 def collect_comment(curs,comment):
     try:
-        curs.execute('INSERT INTO ids_tried (id) VALUES(?)',(comment,))
+        curs.execute('INSERT INTO comment_ids_tried (id) VALUES(?)',(comment,))
     except sqlite3.IntegrityError as ie:
         return False
 
     cd=comment_data(comment)
     if not cd: return False
-    curs.execute('INSERT INTO sample (id) VALUES(?)',(comment,))
     insert_into_table(curs,'comments',cd)
 
     cm=user_data(cd['user_id'])

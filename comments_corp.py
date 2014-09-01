@@ -172,3 +172,4 @@ def add_comment_data(db_source):
             connderiv.commit()
             print 'Committed to db: '+str(n)
     connderiv.commit()
+    print 'Committed to db: '+str(len(ids))

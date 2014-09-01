@@ -80,7 +80,7 @@ creator_follows_commenter INTEGER, commenter_faves_track INTEGER,
 track_genre TEXT, track_tag_list TEXT, language TEXT, datetime TEXT, filtered_text TEXT'''
 
 # Extra table for storing user ids that have been used in the random sample
-# Note: used twice
+# and elsewhere (note: used several times)
 
 sample_table_creator='''id INTEGER PRIMARY KEY'''
 
@@ -96,7 +96,11 @@ tables = {'tracks':tracks_table_creator, 'users':users_table_creator,
 'user_genres':user_gentag_table_creator, 'user_tags':user_gentag_table_creator,
 'x_faves_work_of_y':x_faves_work_of_y_table_creator,
 'comments_corp':comments_corp_table_creator,
-'sample':sample_table_creator, 'ids_tried':sample_table_creator}
+'sample':sample_table_creator, 'ids_tried':sample_table_creator,
+'track_ids_tried':sample_table_creator, 
+'comment_ids_tried':sample_table_creator,
+'uploaders':sample_table_creator,
+'sample_uploaders':sample_table_creator}
 
 # Here are sets containing table names; distinguish deriv database 
 # from original.
