@@ -5,8 +5,10 @@ import csv
 import codecs
 import collections
 
-city_codes=['london','bristol','berlin','los angeles','new york']
-
+seph_city_codes=['london','bristol','berlin','los angeles','new york']
+curs_city_codes=['london','berlin','budapest','glasgow','leipzig']
+shir_city_codes=['london','amsterdam','los angeles','paris','sheffield']
+slac_city_codes=['london','bristol','manchester','paris','berlin']
 
 def cursor(db_fn):
     conn=sqlite3.connect(db_fn+'.sqlite')
@@ -77,9 +79,9 @@ def waves(db_fn,seed,n):
 def test():
     writepath='vis/'
     readpath='minim/data/'
-    db_fn='sephirot_as_seed'
-    csv_fn='follows_sephirot_london_bristol_berlin_LA_NY'
-    to_include=waves(readpath+db_fn,81070,2)
+    db_fn='ego_net_of_slackk'
+    csv_fn='follows_slackk'
+    to_include=waves(readpath+db_fn,202195,2)
     print 'To include: {}'.format(len(to_include))
     csv_files(readpath+db_fn,writepath+csv_fn,to_include)
 

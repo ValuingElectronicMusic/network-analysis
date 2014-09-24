@@ -11,12 +11,15 @@ import os
 import collections
 
 
-city_synonyms={'nyc': 'new york',
+city_synonyms={'nyc': 'new york',   # consider also 'ny' for new york
                'new york, ny': 'new york',
                'newyork': 'new york',
                'brooklyn': 'new york',
                'bronx': 'new york',
+               'la': 'los angeles',
+               'surry hills': 'sydney',
                'montreal': u'montr\u00E9al'.encode('utf-8'),
+               'al qahirah': 'cairo',
                'us': None,
                'indonesia': None,
                'england': None,

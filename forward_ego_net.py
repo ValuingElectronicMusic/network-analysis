@@ -1,20 +1,12 @@
-# Like forward_lomem.py, but written to avoid attempting to collect data more
-# than once. An interesting consequence of this is that it leaves you with
-# SQLite tables showing how many degrees of separation there are between
-# the seed and any given individual.
+# Like outward_waves.py, but souped up: also collects tracks so that
+# genre can be studied. The number of 'waves' is the maximum number of
+# degrees of separation from the seed, plus one (since the seed is
+# collected in the first wave). Note that limitations of the
+# SoundCloud API will prevent all followers of an individual being
+# collected where there are over 8199 such followers.
 
-# It currently works - and works well, as far as I can tell. However,
-# if you are connecting via wifi, and the wifi connection drops out,
-# it simply stops collecting data and hangs - rather than re-trying as
-# it would do if SoundCloud had generated an error. This means that it
-# needs a way of reliably picking up where it left off. That's what
-# the resume() function does. If you want it to resume after a
-# completed wave, the optional keyword arguments should not be needed. If
-# you want to resume in the middle of an interrupted wave, you need to
-# pass it the .tmp file it was working through at the time and tell it
-# what point in that .tmp file it had got to (look in the x_follows_y
-# table for the follower in the last-added row). Only the latter works
-# at the moment, however - and I haven't had time to figure out why.
+# This takes time. Don't do it where an account has lots of followers
+# and followees and you have limited time / broadband.
 
 import add_data as ad
 import get_soundcloud_data as gsd
@@ -97,16 +89,18 @@ class DbHandler(object):
         self.logger.info('Filling wave table: '
                          '{}'.format(next_table))
         sql1 = 'SELECT followed FROM x_follows_y WHERE follower=?'
-        for follower in this_wave:
-            self.curs.execute(sql1,(follower,))
-            for followed in self.curs.fetchall():
-                if not self.collectedp(followed[0]):
-                    sql2 = ('INSERT INTO "{}" '
-                            'VALUES ({})'.format(next_table,followed[0]))
-                    try:
-                        self.curs.execute(sql2)
-                    except sqlite3.IntegrityError:
-                        pass
+        sql2 = 'SELECT follower FROM x_follows_y where followed=?'
+        for user in this_wave:
+            for query in [sql1,sql2]:
+                self.curs.execute(query,(user,))
+                for connected in self.curs.fetchall():
+                    if not self.collectedp(connected[0]):
+                        sql3 = ('INSERT INTO "{}" '
+                                'VALUES ({})'.format(next_table,connected[0]))
+                        try:
+                            self.curs.execute(sql3)
+                        except sqlite3.IntegrityError:
+                            pass
         self.conn.commit()
 
     def write(self,table_name,data):
@@ -187,49 +181,67 @@ def user_dicts(resourcelist):
 
 
 def get_data(req,dbh):
+    '''Mostly copied from all_data_one_person.py'''
     collected = {}
     start_at = 0
     batch_length = 199
-    while batch_length > 198:
+    while batch_length > 198 and start_at < 8001:
         count = 1
+        mouthful = 199
         while True:
             try:
-                batch=user_dicts(gsd.client.get(req,
-                                                order='created_at', 
-                                                limit=199,
-                                                offset=start_at))
-                collected.update(batch)
-                batch_length = len(batch)
-                start_at += 199
-                break
+                if req[-1].isdigit():
+                    return gsd.client.get(req)
+                else:
+                    batch=user_dicts(gsd.client.get(req,
+                                                    order='created_at', 
+                                                    limit=mouthful,
+                                                    offset=start_at))
+                    collected.update(batch)
+                    batch_length = len(batch)
+                    start_at += mouthful
+                    break
             except Exception as e:
                 warning = ('ERROR in client.get() - problem connecting to '
                            'SoundCloud API, error '+str(e)+' for '
-                           'request '+req+'. Trying again... '
+                           'request '+req+', limit='+str(mouthful)+
+                           ', offset='+str(start_at)+'. Trying again... '
                            'attempt '+str(count))
-                print warning
                 dbh.logger.warning(warning)
+                print warning
+
+                if str(e)[:3]=='404': # non-existent user ID
+                    return None
+
+                if str(e)[:3]=='500': # too much data for server
+                    mouthful = mouthful / 2
+                    if mouthful < 1: mouthful = 1
+
                 time.sleep(time_delay * count)
                 count += 1
+
     return collected
 
 
 def starting_user(user_id,dbh):
-    return gsd.client.get('/users/'+str(user_id)).obj
+    return get_data('/users/'+str(user_id),dbh).obj
 
 
-def followed_by_user(user_id,dbh):
+def connected_to_user(user_id,dbh):
     followings = get_data('/users/'+str(user_id)+'/followings',dbh)
     x_follows_y = {(user_id,y) for y in followings}
-    return followings,x_follows_y
+    followers = get_data('/users/'+str(user_id)+'/followers',dbh)
+    x_follows_y = x_follows_y | {(x,user_id) for x in followers}
+    return dict(followings, **followers),x_follows_y
 
 
-def collect_from_users(to_collect_following,
+def collect_from_users(connected_to_collect,
                        user_data,x_follows_y,dbh):
-    for user in to_collect_following:
-        us,xfy = followed_by_user(user,dbh)
+    for user in connected_to_collect:
+        us,xfy = connected_to_user(user,dbh)
         user_data.update(us)
         x_follows_y.update(xfy)
+
 
 def now_where_was_i(fn,pickup_user):
     f=open(fn,'r')
@@ -306,16 +318,22 @@ def resume(dbname,seed,totalwaves,startwave,tempfile=False,pickup_user=False):
                          totalwaves,startwave,tempfile,pickup_user)
 
 
-Slackk = 202195
-Sephirot = 81070
-Sculpture = 261433 # Soundcloud website is 'tapebox'
-Ms_Skyrym = 15899888
-FAS = 55078931
-Shirty = 18489
-mrmitchmusic = 88257
-cminer = 271933
+Slackk = ('slackk',202195)
+Sephirot = ('sephirot',81070)
+Sculpture = ('tapebox',261433)
+Ms_Skyrym = ('theresa-deane-1',15899888)
+FAS = ('fas',55078931)
+Rob_Tubb = ('cminer',271933)
+Mr_Mitch = ('mrmitchmusic',88257)
+Josh_Shirt = ('shirty',18489)
+
+case_studies = [Slackk,Sephirot,Ms_Skyrym,Mr_Mitch,Rob_Tubb,Josh_Shirt]
 
 
-def test(waves=1):
-    collect('testforwardwaves2',FAS,waves=waves)
-    
+# n.b. I don't think Junior Brefo or Glenn Max are on SoundCloud
+
+def ego_nets(seeds=case_studies,waves=2):
+    for seed in seeds:
+        print 'Current seed: {}.'.format(seed[0])
+        collect('ego_net_of_{}'.format(seed[0]),seed[1],waves=waves)
+

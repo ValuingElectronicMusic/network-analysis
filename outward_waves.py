@@ -216,7 +216,6 @@ def get_data(req,dbh):
 
                 time.sleep(time_delay * count)
                 count += 1
-
     return collected
 
 
@@ -224,18 +223,21 @@ def starting_user(user_id,dbh):
     return get_data('/users/'+str(user_id),dbh).obj
 
 
-def connected_to_user(user_id,dbh):
-    followings = get_data('/users/'+str(user_id)+'/followings',dbh)
-    x_follows_y = {(user_id,y) for y in followings}
-    followers = get_data('/users/'+str(user_id)+'/followers',dbh)
-    x_follows_y = x_follows_y | {(x,user_id) for x in followers}
-    return dict(followings, **followers),x_follows_y
+def connected_to_user(user_id,dbh,collect_followers):
+    follow_accounts = get_data('/users/'+str(user_id)+'/followings',dbh)
+    x_follows_y = {(user_id,y) for y in follow_accounts}
+    if collect_followers:
+        followers = get_data('/users/'+str(user_id)+'/followers',dbh)
+        x_follows_y = x_follows_y | {(x,user_id) for x in followers}
+        follow_accounts.update(followers)
+    return dict(follow_accounts),x_follows_y
+
 
 
 def collect_from_users(connected_to_collect,
-                       user_data,x_follows_y,dbh):
+                       user_data,x_follows_y,dbh,collect_followers):
     for user in connected_to_collect:
-        us,xfy = connected_to_user(user,dbh)
+        us,xfy = connected_to_user(user,dbh,collect_followers)
         user_data.update(us)
         x_follows_y.update(xfy)
 
@@ -273,8 +275,14 @@ def roll_snowball(seed,dbh,user_data,follow_data,totalwaves,startwave,
             this_wave=open(tempfile,'r')
         else:
             this_wave=dbh.to_collect()
-        collect_from_users(this_wave,user_data,follow_data,dbh)
+        if wave==startwave or wave < totalwaves-1:
+            collect_followers=True
+        else:
+            collect_followers=False
+        collect_from_users(this_wave,user_data,follow_data,dbh,
+                           collect_followers)
         user_data.save()
+
         follow_data.save()
         this_wave.seek(0)
         message = 'Wave {} complete'.format(wave)
@@ -323,11 +331,11 @@ FAS = ('fas',55078931)
 Rob_Tubb = ('cminer',271933)
 Mr_Mitch = ('mrmitchmusic',88257)
 Josh_Shirt = ('shirty',18489)
+Cursor_Miner = ('cminer',271933)
 
-case_studies = [Slackk,Sephirot,Ms_Skyrym,Mr_Mitch,Rob_Tubb,Josh_Shirt]
 
+case_studies = [Josh_Shirt,Cursor_Miner]
 
-# n.b. I don't think Junior Brefo or Glenn Max are on SoundCloud
 
 def ego_nets(seeds=case_studies,waves=2):
     for seed in seeds:

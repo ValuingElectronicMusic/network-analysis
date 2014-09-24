@@ -39,8 +39,8 @@ class Writer(object):
         self.save_done()
         print 'Remainder written.'
 
-    def add_done(self,track):
-        self.donestore.append(track)
+    def add_done(self,user):
+        self.donestore.append(user)
 
     def add_track(self,track):
         self.trackstore.append(track)
@@ -61,7 +61,7 @@ def names(listfilepath):
     return dir,name,subdir
 
 
-def get_tracks(listfilepath):
+def get_users_and_tracks(listfilepath):
     dir,name,subdir=names(listfilepath)
     if not os.path.exists(subdir):
         os.mkdir(subdir)
@@ -82,9 +82,9 @@ def get_tracks(listfilepath):
     for i,l in enumerate(to_do):
         if i < 10 or i % 1000 == 0: print '{} worked through'.format(i)
         n=int(l)
-        td=adoe.track_data(n)
+        ud=adoe.user_data(n)
         w.add_done(n)
-        if td:
+        if ud:
             tu=adoe.user_data(td['user_id'])
             if tu: 
                 w.add_user(tu)
@@ -92,13 +92,14 @@ def get_tracks(listfilepath):
 
     w.save_all()
 
-def insert_tracks(listfilepath,dbfilepath):
+
+def insert_data(listfilepath,dbfilepath):
     conn=sqlite3.connect(dbfilepath)
     curs=conn.cursor()
     dir,name,subdir=names(listfilepath)
     tracks=glob.iglob(os.path.join(subdir,'users','*.pck'))
     users=glob.iglob(os.path.join(subdir,'users','*.pck'))
-    print 'Tracks now'
+    print 'Inserting tracks now'
     for t in tracks:
         print t
         with open(t) as f:
@@ -106,7 +107,7 @@ def insert_tracks(listfilepath,dbfilepath):
             for d in l:
                 adoe.insert_into_table(curs,'tracks',d)
     conn.commit()
-    print 'Users now'
+    print 'Inserting users now'
     for u in users:
         print u
         with open(u) as f:
