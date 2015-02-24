@@ -3,16 +3,12 @@
 # (whether by location or by genre or similar). The code here was based on
 # genre_network2.py
 
-# Now modified to include indegree and eigenvector centrality in the output
-# file
-
 
 import sqlite3
 import cPickle
 import csv
 import os
 import collections
-import networkx as nx
 
 
 city_synonyms={'nyc': 'new york',   # consider also 'ny' for new york
@@ -117,55 +113,36 @@ def nodes_counted(node_data,min_freq):
     return nodes_dict
     
 
-def nodes_csv(nodes_dict,popul,inds,eigs):
-    rows=[['Id','Label','Popularity','Indegree','Eigenvector Centrality']]
-    for k in nodes_dict.keys():
-        try:
-            pop=popul[k]
-        except KeyError:
-            pop=0
-        try:
-            ind=inds[k]
-        except KeyError:
-            ind=0
-        try:
-            eig=eigs[k]
-        except KeyError:
-            eid=0
-        rows.append((k,k,pop,ind,eig))
+def nodes_csv(nodes_dict):
+    rows=[['Id','Label']]
+    rows.extend([(k,k) for k in nodes_dict.keys()])
     return rows
 
 
-def user_dict(user_data,index):
-    return {u[0]:u[index] for u in user_data}
+def user_dict(user_data,index,nodes):
+    print list(user_data)[0]
+    return {u[0]:u[index] for u in user_data if u[index] in nodes}
 
 
 def edges_csv(follow_data,user_data,index,nodes):
 
-    ud=user_dict(user_data,index)
+    ud=user_dict(user_data,index,nodes)
 
     edges={}
-    popul={}
 
     for f in follow_data:
         try:
             link=(ud[f[0]],ud[f[1]])
-            if link[0] in nodes and link[1] in nodes:
-                try:
-                    edges[link] += 1
-                except KeyError:
-                    edges[link] = 1
-            if link[1] in nodes:
-                try:
-                    popul[link[1]] += 1
-                except KeyError:
-                    popul[link[1]] = 1
+            try:
+                edges[link] += 1
+            except KeyError:
+                edges[link] = 1
         except KeyError:
             pass
 
     return [('Source','Target','Weight')]+[(k1,k2,v) 
                                            for (k1,k2),v 
-                                           in edges.iteritems()],popul
+                                           in edges.iteritems()]
 
 
 def write_csv(csv_fn,csv_rows):
@@ -174,37 +151,15 @@ def write_csv(csv_fn,csv_rows):
     writer.writerows(csv_rows)
 
 
-def nx_graph(edges):
-    g=nx.DiGraph()
-    for e in edges[1:]:
-        g.add_edge(e[0],e[1],weight=e[2])
-    return g
-
-
-def calc_centrality(edges):
-    g=nx_graph(edges)
-    inds={}
-    for n in g.nodes():
-        inds[n]=g.in_degree(n,weight="weight")
-    g=g.reverse()
-    eigs=nx.eigenvector_centrality(g,weight="weight")
-    return inds,eigs
-
-
-def clean_user_data(input_path,output_path,synonyms):
-    user_data=get_users(input_path,synonyms)
-    cPickle.dump(user_data,open(output_path,'wb'))
-
-
 def create_graph(sample_path,follows_path,user_data_path,
-                 output_dirpath,min_freq,index=4):
+                 output_dirpath,min_freq,index=4,synonyms=False):
     samp=set(get_data(sample_path))
     print 'Sample: {} ({})'.format(len(samp),
                                    list(samp)[0])
     follows=get_follows(follows_path,samp)
     print 'Follow relationships: {} ({})'.format(len(follows),
                                                  list(follows)[0])
-    user_data=cPickle.load(open(user_data_path,'rb')) # must be pre-cleaned
+    user_data=get_users(user_data_path,synonyms)
     print 'SoundCloud accounts to process: {} ({})'.format(len(user_data),
                                                            list(user_data)[0])
 
@@ -214,14 +169,10 @@ def create_graph(sample_path,follows_path,user_data_path,
                          and len(u[index])>0],
                         min_freq)
     print 'Nodes: {} ({})'.format(len(nodes),list(nodes)[0])
-
-    edges,popul=edges_csv(follows,user_data,index,set(nodes.keys()))
-
-    inds,eigs=calc_centrality(edges)
-
     write_csv(os.path.join(output_dirpath,'nodes.csv'),
-              nodes_csv(nodes,popul,inds,eigs))
+              nodes_csv(nodes))
 
+    edges=edges_csv(follows,user_data,index,set(nodes.keys()))
     print 'Edges: {} ({})'.format(len(edges),list(edges)[0])
     write_csv(os.path.join(output_dirpath,'edges.csv'),
               edges)
