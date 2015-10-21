@@ -24,11 +24,6 @@ batches_before_backup = 100
 collect_funcs = {'users':adoe.collect_user,
                  'tracks':adoe.collect_track,
                  'comments':adoe.collect_comment}
-'''
-maxnums = {'users':104000000,
-           'tracks':170000000,
-           'comments':195000000}
-'''
 
 maxnums = {'users':182000000,
            'tracks':230000000,
