@@ -24,15 +24,21 @@ batches_before_backup = 100
 collect_funcs = {'users':adoe.collect_user,
                  'tracks':adoe.collect_track,
                  'comments':adoe.collect_comment}
+'''
 maxnums = {'users':104000000,
            'tracks':170000000,
            'comments':195000000}
+'''
 
+maxnums = {'users':182000000,
+           'tracks':230000000,
+           'comments':260000000}
 
 #   As of 7 July 2014, there've been nearly 103380000 SoundCloud accounts
 #   As of 28 July 2014, there've been between 160500000 and 160600000 tracks
 #   As of 28 July 2014, there've been between 194000000 and 195000000 comments
 
+#   As of 21 October 2015, there are somewhere approaching 182000000 accounts
 
 def time_stamp():
     return time.strftime('%Y%m%d_%H%M')
