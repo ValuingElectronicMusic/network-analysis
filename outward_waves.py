@@ -224,20 +224,21 @@ def starting_user(user_id,dbh):
 
 
 def connected_to_user(user_id,dbh,collect_followers):
-    follow_accounts = get_data('/users/'+str(user_id)+'/followings',dbh)
+    req='/users/{}/followings'.format(user_id)
+    follow_accounts = get_data(req,dbh)
     x_follows_y = {(user_id,y) for y in follow_accounts}
     if collect_followers:
-        followers = get_data('/users/'+str(user_id)+'/followers',dbh)
+        req='/users/{}/followers'.format(user_id)
+        followers = get_data(req,dbh)
         x_follows_y = x_follows_y | {(x,user_id) for x in followers}
         follow_accounts.update(followers)
     return dict(follow_accounts),x_follows_y
 
 
-
 def collect_from_users(connected_to_collect,
                        user_data,x_follows_y,dbh,collect_followers):
     for user in connected_to_collect:
-        us,xfy = connected_to_user(user,dbh,collect_followers)
+        us,xfy = connected_to_user(int(user),dbh,collect_followers)
         user_data.update(us)
         x_follows_y.update(xfy)
 
